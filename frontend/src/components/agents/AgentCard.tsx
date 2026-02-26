@@ -20,7 +20,7 @@ function ProviderBadge({ provider, model }: { provider: string; model: string })
   )
   
   const colors = PROVIDER_COLORS[provider] ?? 'bg-muted text-muted-foreground border-transparent'
-  const modelPart = model ? model.split('-')[0].split('/')[0] : ''
+  const modelPart = model ? (model.split('-')[0]?.split('/')[0] ?? '') : ''
   const label = model ? `${provider} • ${modelPart}` : provider
   
   return (

@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom'
 import type { TaskSummary } from '../../api/types'
 import { StatusBadge } from '../common/StatusBadge'
 import { ExternalLink, Hash, Clock, FileText } from 'lucide-react'
-import { cn } from '../../utils'
 
 const TaskRow = memo(function TaskRow({ task }: { task: TaskSummary }) {
   return (

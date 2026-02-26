@@ -1,6 +1,6 @@
 import type { Agent } from '../../api/types'
 import { AgentCard } from './AgentCard'
-import { Bot, Plus } from 'lucide-react'
+import { Bot } from 'lucide-react'
 
 export function AgentList({ agents }: { agents: Agent[] }) {
   if (agents.length === 0) {

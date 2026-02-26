@@ -39,9 +39,10 @@ function useMatrixRain(canvasRef: React.RefObject<HTMLCanvasElement | null>) {
       ctx!.font = `${fontSize}px monospace`
 
       for (let i = 0; i < columns.length; i++) {
-        const char = CHARS[Math.floor(Math.random() * CHARS.length)]
+        const char = CHARS[Math.floor(Math.random() * CHARS.length)] ?? '0'
         const x = i * fontSize
-        const y = columns[i] * fontSize
+        const colVal = columns[i] ?? 0
+        const y = colVal * fontSize
 
         const brightness = Math.random()
         if (brightness > 0.9) {
@@ -53,7 +54,7 @@ function useMatrixRain(canvasRef: React.RefObject<HTMLCanvasElement | null>) {
         }
 
         ctx!.fillText(char, x, y)
-        columns[i]++
+        columns[i] = colVal + 1
 
         if (y > canvas!.height && Math.random() > 0.975) {
           columns[i] = 0

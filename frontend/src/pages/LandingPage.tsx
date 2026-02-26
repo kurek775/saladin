@@ -1,7 +1,8 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { motion, useInView } from 'framer-motion'
-import { ShieldCheck, Bot, RotateCcw, Activity, ArrowRight } from 'lucide-react'
+import { ShieldCheck, Bot, RotateCcw, Activity, ArrowRight, ChevronDown } from 'lucide-react'
+import { useMousePosition } from '../hooks/useMousePosition'
 
 // ---------- Matrix Rain (same technique as SplashScreen) ----------
 
@@ -39,9 +40,10 @@ function useMatrixRain(canvasRef: React.RefObject<HTMLCanvasElement | null>) {
       ctx!.font = `${fontSize}px monospace`
 
       for (let i = 0; i < columns.length; i++) {
-        const char = CHARS[Math.floor(Math.random() * CHARS.length)]
+        const char = CHARS[Math.floor(Math.random() * CHARS.length)] ?? '0'
         const x = i * fontSize
-        const y = columns[i] * fontSize
+        const colVal = columns[i] ?? 0
+        const y = colVal * fontSize
 
         const brightness = Math.random()
         if (brightness > 0.9) {
@@ -53,7 +55,7 @@ function useMatrixRain(canvasRef: React.RefObject<HTMLCanvasElement | null>) {
         }
 
         ctx!.fillText(char, x, y)
-        columns[i]++
+        columns[i] = colVal + 1
 
         if (y > canvas!.height && Math.random() > 0.975) {
           columns[i] = 0
@@ -72,7 +74,7 @@ function useMatrixRain(canvasRef: React.RefObject<HTMLCanvasElement | null>) {
   }, [canvasRef])
 }
 
-// ---------- SVG Agent Network (hero) ----------
+// ---------- SVG Agent Network (hero) with data-flow particles ----------
 
 const SVG_W = 440
 const SVG_H = 260
@@ -90,6 +92,26 @@ function HeroNetwork() {
       className="w-[340px] sm:w-[440px] mx-auto"
       fill="none"
     >
+      {/* Hidden path elements for animateMotion */}
+      {WORKER_XS.map((wx, i) => (
+        <path
+          key={`path-down-${i}`}
+          id={`conn-down-${i}`}
+          d={`M${SUP_CX},${SUP_CY} L${wx},${WORKER_Y}`}
+          fill="none"
+          stroke="none"
+        />
+      ))}
+      {WORKER_XS.map((wx, i) => (
+        <path
+          key={`path-up-${i}`}
+          id={`conn-up-${i}`}
+          d={`M${wx},${WORKER_Y} L${SUP_CX},${SUP_CY}`}
+          fill="none"
+          stroke="none"
+        />
+      ))}
+
       {/* Connection lines */}
       {WORKER_XS.map((wx, i) => {
         const length = Math.sqrt((wx - SUP_CX) ** 2 + (WORKER_Y - SUP_CY) ** 2)
@@ -110,6 +132,32 @@ function HeroNetwork() {
           />
         )
       })}
+
+      {/* Data flow particles — supervisor→worker (green, bright) */}
+      {WORKER_XS.map((_, i) => (
+        <circle key={`particle-down-${i}`} r="3" fill="#22c55e" opacity="0.8">
+          <animateMotion
+            dur={`${1.8 + i * 0.3}s`}
+            repeatCount="indefinite"
+            begin={`${1.2 + i * 0.4}s`}
+          >
+            <mpath href={`#conn-down-${i}`} />
+          </animateMotion>
+        </circle>
+      ))}
+
+      {/* Data flow particles — worker→supervisor (dimmer, slower) */}
+      {WORKER_XS.map((_, i) => (
+        <circle key={`particle-up-${i}`} r="2" fill="#22c55e" opacity="0.3">
+          <animateMotion
+            dur={`${2.4 + i * 0.35}s`}
+            repeatCount="indefinite"
+            begin={`${2.5 + i * 0.5}s`}
+          >
+            <mpath href={`#conn-up-${i}`} />
+          </animateMotion>
+        </circle>
+      ))}
 
       {/* Supervisor node */}
       <motion.g
@@ -161,7 +209,7 @@ function HeroNetwork() {
   )
 }
 
-// ---------- Feature Cards ----------
+// ---------- Feature Cards with 3D tilt ----------
 
 const features = [
   {
@@ -193,19 +241,48 @@ function FeatureCard({
   const ref = useRef<HTMLDivElement>(null)
   const inView = useInView(ref, { once: true, margin: '-80px' })
 
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const el = e.currentTarget
+    const rect = el.getBoundingClientRect()
+    const x = ((e.clientX - rect.left) / rect.width - 0.5) * 2
+    const y = ((e.clientY - rect.top) / rect.height - 0.5) * 2
+    el.style.transform = `perspective(600px) rotateY(${x * 8}deg) rotateX(${-y * 8}deg) scale(1.02)`
+    const inner = el.querySelector<HTMLElement>('[data-tilt-icon]')
+    if (inner) inner.style.transform = `translateZ(30px)`
+    const text = el.querySelector<HTMLElement>('[data-tilt-text]')
+    if (text) text.style.transform = `translateZ(15px)`
+  }, [])
+
+  const handleMouseLeave = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const el = e.currentTarget
+    el.style.transform = ''
+    const inner = el.querySelector<HTMLElement>('[data-tilt-icon]')
+    if (inner) inner.style.transform = ''
+    const text = el.querySelector<HTMLElement>('[data-tilt-text]')
+    if (text) text.style.transform = ''
+  }, [])
+
   return (
     <motion.div
       ref={ref}
       initial={{ opacity: 0, y: 30 }}
       animate={inView ? { opacity: 1, y: 0 } : {}}
       transition={{ duration: 0.5, delay: index * 0.15 }}
-      className="group rounded-xl border border-white/10 bg-white/5 p-6 transition-colors hover:border-green-500/40"
+      className="group rounded-xl border border-white/10 bg-white/5 p-6 transition-all duration-200 hover:border-green-500/40"
+      style={{ transformStyle: 'preserve-3d' }}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
     >
-      <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-green-500/10">
+      <div
+        data-tilt-icon=""
+        className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-green-500/10 transition-transform duration-200"
+      >
         <Icon className="h-5 w-5 text-green-400" />
       </div>
-      <h3 className="mb-2 text-lg font-semibold text-white">{title}</h3>
-      <p className="text-sm leading-relaxed text-gray-400">{description}</p>
+      <div data-tilt-text="" className="transition-transform duration-200">
+        <h3 className="mb-2 text-lg font-semibold text-white">{title}</h3>
+        <p className="text-sm leading-relaxed text-gray-400">{description}</p>
+      </div>
     </motion.div>
   )
 }
@@ -361,11 +438,34 @@ function CTAButton({ children }: { children: React.ReactNode }) {
   )
 }
 
+// ---------- Scroll Indicator ----------
+
+function ScrollIndicator() {
+  return (
+    <motion.div
+      className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ delay: 2.5, duration: 0.5 }}
+    >
+      <span className="text-[10px] font-mono uppercase tracking-widest text-green-500/50">Scroll</span>
+      <motion.div
+        animate={{ y: [0, 8, 0] }}
+        transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+      >
+        <ChevronDown className="h-5 w-5 text-green-500/40" />
+      </motion.div>
+    </motion.div>
+  )
+}
+
 // ---------- Landing Page ----------
 
 export function LandingPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const heroRef = useRef<HTMLElement>(null)
   useMatrixRain(canvasRef)
+  const mouse = useMousePosition(heroRef)
 
   return (
     <div className="relative min-h-screen overflow-x-hidden" style={{ backgroundColor: '#030712', color: '#fff' }}>
@@ -376,13 +476,23 @@ export function LandingPage() {
       <div className="pointer-events-none fixed inset-0 bg-[#030712]/70" />
 
       {/* ===== Section 1: Hero ===== */}
-      <section className="relative z-10 flex min-h-screen flex-col items-center justify-center px-4 text-center">
-        <HeroNetwork />
+      <section
+        ref={heroRef}
+        className="relative z-10 flex min-h-screen flex-col items-center justify-center px-4 text-center"
+      >
+        {/* Hero parallax: SVG network follows mouse */}
+        <motion.div
+          animate={{ x: mouse.x * 20, y: mouse.y * 15 }}
+          transition={{ type: 'spring', stiffness: 150, damping: 20, mass: 0.5 }}
+        >
+          <HeroNetwork />
+        </motion.div>
 
+        {/* Title moves opposite for depth illusion */}
         <motion.h1
           className="mt-8 font-mono text-4xl font-bold tracking-[0.3em] text-green-400 sm:text-5xl"
           initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
+          animate={{ opacity: 1, y: 0, x: mouse.x * -8 }}
           transition={{ delay: 1.2, duration: 0.6 }}
         >
           SALADIN
@@ -391,7 +501,7 @@ export function LandingPage() {
         <motion.p
           className="mt-3 font-mono text-sm tracking-widest text-green-500/60"
           initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
+          animate={{ opacity: 1, x: mouse.x * -5, y: mouse.y * -3 }}
           transition={{ delay: 1.6, duration: 0.5 }}
         >
           Multi-Agent Orchestration
@@ -414,6 +524,8 @@ export function LandingPage() {
         >
           <CTAButton>Enter Command Center</CTAButton>
         </motion.div>
+
+        <ScrollIndicator />
       </section>
 
       {/* ===== Section 2: Feature Cards ===== */}

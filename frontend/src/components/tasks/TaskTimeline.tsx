@@ -40,7 +40,7 @@ export function TaskTimeline({
 
   return (
     <div className="relative space-y-6 before:absolute before:inset-0 before:ml-5 before:-translate-x-px before:h-full before:w-0.5 before:bg-gradient-to-b before:from-primary/20 before:via-muted before:to-transparent">
-      {entries.map((entry, idx) => (
+      {entries.map((entry) => (
         <div key={entryKey(entry)} className="relative flex items-start gap-6 group">
           {/* Icon/Dot */}
           <div className={cn(
@@ -110,21 +110,30 @@ export function TaskTimeline({
   )
 }
 
-function DecisionBadge({ decision }: { decision: string }) {
-  const configs: Record<string, { icon: any; class: string; label: string }> = {
-    approve: { icon: CheckCircle2, class: 'bg-green-500/10 text-green-500 border-green-500/20', label: 'APPROVED' },
-    revise: { icon: RotateCcw, class: 'bg-amber-500/10 text-amber-500 border-amber-500/20', label: 'REVISE' },
-    reject: { icon: AlertCircle, class: 'bg-red-500/10 text-red-500 border-red-500/20', label: 'REJECTED' },
-  }
+interface DecisionConfig {
+  icon: React.ElementType
+  class: string
+  label: string
+}
 
-  const config = configs[decision] || configs.revise
+const decisionConfigs: Record<string, DecisionConfig> = {
+  approve: { icon: CheckCircle2, class: 'bg-green-500/10 text-green-500 border-green-500/20', label: 'APPROVED' },
+  revise: { icon: RotateCcw, class: 'bg-amber-500/10 text-amber-500 border-amber-500/20', label: 'REVISE' },
+  reject: { icon: AlertCircle, class: 'bg-red-500/10 text-red-500 border-red-500/20', label: 'REJECTED' },
+}
+
+const DECISION_FALLBACK: DecisionConfig = decisionConfigs['revise']!
+
+function DecisionBadge({ decision }: { decision: string }): React.JSX.Element {
+  const config = decisionConfigs[decision] ?? DECISION_FALLBACK
+  const Icon = config.icon
 
   return (
     <span className={cn(
       "inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-black uppercase tracking-widest border",
       config.class
     )}>
-      <config.icon className="size-3" />
+      <Icon className="size-3" />
       {config.label}
     </span>
   )

@@ -6,7 +6,6 @@ import { TaskTimeline } from '../components/tasks/TaskTimeline'
 import { LiveLogPanel } from '../components/logs/LiveLogPanel'
 import { LoadingSpinner } from '../components/common/LoadingSpinner'
 import { ArrowLeft, ClipboardList, CheckCircle, FileText, Activity, Clock, Hash, History } from 'lucide-react'
-import { cn } from '../utils'
 
 export function TaskDetailPage() {
   const { id } = useParams<{ id: string }>()

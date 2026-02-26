@@ -1,7 +1,8 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, ListTodo, Bot, Settings, Command } from 'lucide-react'
+import { LayoutDashboard, ListTodo, Bot, Settings } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { cn } from '../../utils'
+import { Logo } from '../common/Logo'
 
 const links = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -13,8 +14,8 @@ export function Sidebar() {
   return (
     <aside className="w-64 bg-card border-r flex flex-col h-full">
       <div className="p-6 flex items-center gap-3">
-        <div className="size-8 bg-primary rounded-lg flex items-center justify-center shadow-lg shadow-primary/20">
-          <Command className="size-5 text-primary-foreground" />
+        <div className="size-8 flex items-center justify-center">
+          <Logo size={32} />
         </div>
         <div>
           <h1 className="text-lg font-bold tracking-tight">Saladin</h1>

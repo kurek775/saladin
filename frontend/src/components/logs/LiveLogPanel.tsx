@@ -8,7 +8,7 @@ export function LiveLogPanel({ taskId }: { taskId?: string }) {
   const logs = useStore((s) => s.logs)
   const clearLogs = useStore((s) => s.clearLogs)
   const bottomRef = useRef<HTMLDivElement>(null)
-  const [isAutoScroll, setIsAutoScroll] = useState(true)
+  const [isAutoScroll, setIsAutoScroll] = useState(false)
 
   const filtered = useMemo(
     () => (taskId ? logs.filter((l) => l.task_id === taskId) : logs),

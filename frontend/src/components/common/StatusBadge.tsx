@@ -1,7 +1,17 @@
 import { memo } from 'react'
+import type { AgentStatus, TaskStatus } from '../../api/types'
 import { cn } from '../../utils'
 
-const statusConfig: Record<string, { label: string; dot: string; bg: string; text: string }> = {
+type StatusKey = AgentStatus | TaskStatus
+
+interface StatusConfig {
+  label: string
+  dot: string
+  bg: string
+  text: string
+}
+
+const statusConfig: Record<StatusKey, StatusConfig> = {
   idle: { label: 'Idle', dot: 'bg-muted-foreground', bg: 'bg-muted/50', text: 'text-muted-foreground' },
   busy: { label: 'Busy', dot: 'bg-amber-500', bg: 'bg-amber-500/10', text: 'text-amber-500' },
   error: { label: 'Error', dot: 'bg-red-500', bg: 'bg-red-500/10', text: 'text-red-500' },
@@ -14,9 +24,11 @@ const statusConfig: Record<string, { label: string; dot: string; bg: string; tex
   failed: { label: 'Failed', dot: 'bg-red-600', bg: 'bg-red-600/10', text: 'text-red-600' },
 }
 
-export const StatusBadge = memo(function StatusBadge({ status, className }: { status: string; className?: string }) {
-  const config = statusConfig[status] || statusConfig.idle
-  
+const FALLBACK: StatusConfig = statusConfig.idle
+
+export const StatusBadge = memo(function StatusBadge({ status, className }: { status: StatusKey; className?: string }): React.JSX.Element {
+  const config = statusConfig[status] ?? FALLBACK
+
   return (
     <span className={cn(
       "inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-bold uppercase tracking-wider",

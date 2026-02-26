@@ -51,8 +51,8 @@ export function Header() {
             <button
               type="button"
               onClick={() => {
-                const next = themeOrder[(themeOrder.indexOf(theme) + 1) % themeOrder.length]
-                setTheme(next)
+                const idx = (themeOrder.indexOf(theme) + 1) % themeOrder.length
+                setTheme(themeOrder[idx] ?? 'dark')
               }}
               className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
               title={`Theme: ${themeLabel[theme]}`}
