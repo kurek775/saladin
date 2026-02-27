@@ -1,10 +1,12 @@
 import logging
 import uuid
+import hashlib
 
 import chromadb
 from chromadb.config import Settings as ChromaSettings
 
 from app.config import settings
+from app.services.search.bm25_index import add_document
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +28,14 @@ def _get_collection(agent_id: str) -> chromadb.Collection:
     if agent_id in _collection_cache:
         return _collection_cache[agent_id]
     client = _get_client()
-    collection_name = f"agent_{agent_id.replace('-', '_')[:50]}"
+    
+    # Improved collection naming strategy to mitigate collisions
+    # Truncate agent_id and append a short hash of the full agent_id
+    # This balances readability/length with uniqueness.
+    agent_id_sanitized = agent_id.replace('-', '_')
+    agent_id_hash = hashlib.sha256(agent_id.encode()).hexdigest()[:10]
+    collection_name = f"agent_{agent_id_sanitized[:40]}_{agent_id_hash}"
+    
     collection = client.get_or_create_collection(
         name=collection_name,
         metadata={"agent_id": agent_id},
@@ -51,7 +60,7 @@ def search_chroma(agent_id: str, query: str, k: int = 5) -> list[str]:
         return documents
     except Exception as e:
         logger.error("ChromaDB search error: %s", e)
-        return []
+        raise  # Re-raise the exception
 
 
 def search_chroma_with_scores(agent_id: str, query: str, k: int = 5) -> list[tuple[str, float]]:
@@ -80,7 +89,7 @@ def search_chroma_with_scores(agent_id: str, query: str, k: int = 5) -> list[tup
         return scored
     except Exception as e:
         logger.error("ChromaDB scored search error: %s", e)
-        return []
+        raise  # Re-raise the exception
 
 
 def store_chroma(agent_id: str, content: str) -> None:
@@ -95,11 +104,7 @@ def store_chroma(agent_id: str, content: str) -> None:
         logger.info("Stored memory for agent %s: %s", agent_id, doc_id)
 
         # Also update BM25 index
-        try:
-            from app.services.search.bm25_index import add_document
-            add_document(agent_id, content)
-        except Exception:
-            pass
+        add_document(agent_id, content)
 
     except Exception as e:
         logger.error("ChromaDB store error: %s", e)

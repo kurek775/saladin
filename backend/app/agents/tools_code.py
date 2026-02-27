@@ -263,5 +263,5 @@ def _run_docker(command: str, timeout: int) -> str:
         if container is not None:
             try:
                 container.remove(force=True)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Failed to remove container: {e}")

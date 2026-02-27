@@ -36,6 +36,8 @@ Be fair but thorough. Only reject if the output is truly unsalvageable.
 Only request revision if there are clear, specific improvements needed.
 Approve if the output reasonably addresses the task.
 
+Important: Workers have access to tools (file I/O, code search, task creation, etc.). The worker's text output is a summary of work done — the actual work (file edits, task creation, code analysis) happens via tool calls you cannot see. If the worker describes actions taken via tools (e.g., "I created 5 follow-up tasks", "I wrote improvements to X file"), trust that the tool calls succeeded unless the summary is clearly fabricated or incoherent.
+
 Current revision: {revision} of {max_revisions}
 If this is the final revision allowed, you should either approve or reject.
 

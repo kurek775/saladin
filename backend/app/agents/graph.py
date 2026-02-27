@@ -114,7 +114,7 @@ async def dispatch_workers(state: SaladinState) -> dict:
 
             result = await worker.ainvoke(
                 {"messages": [HumanMessage(content=task_message)]},
-                config={"callbacks": [callback]},
+                config={"callbacks": [callback], "recursion_limit": 50},
             )
 
             raw_content = result["messages"][-1].content if result["messages"] else ""

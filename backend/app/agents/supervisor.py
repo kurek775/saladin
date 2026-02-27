@@ -1,11 +1,13 @@
 import json
 import logging
+import re # Import re
+from pydantic import ValidationError # Import ValidationError
 
 from langchain_core.messages import HumanMessage
 
 from app.agents.llm_factory import create_llm
 from app.agents.prompts import SUPERVISOR_SYSTEM_PROMPT
-from app.agents.state import SaladinState, ReviewResult
+from app.agents.state import SaladinState, ReviewResult # ReviewResult is now a Pydantic model
 
 logger = logging.getLogger(__name__)
 
@@ -60,26 +62,26 @@ async def supervisor_review(state: SaladinState, llm_provider: str = "", llm_mod
 
 
 def _parse_decision(content: str) -> ReviewResult:
-    """Extract JSON decision from supervisor response."""
+    """Extract and validate JSON decision from supervisor response."""
+    # Regex to find a JSON block, optionally enclosed in ```json or ```
+    json_match = re.search(r"```json\n({.*?})\n```", content, re.DOTALL)
+    if not json_match:
+        json_match = re.search(r"```\n({.*?})\n```", content, re.DOTALL)
+    if not json_match:
+        # Fallback to finding the first and last curly braces
+        start = content.find("{")
+        end = content.rfind("}") + 1
+        if start == -1 or end == -1 or start >= end:
+            logger.warning("Failed to find JSON in supervisor response.")
+            return ReviewResult(decision="revise", feedback="Could not parse supervisor response; requesting revision for safety")
+        json_str = content[start:end]
+    else:
+        json_str = json_match.group(1)
+
     try:
-        text = content
-        if "```json" in text:
-            text = text.split("```json")[1].split("```")[0]
-        elif "```" in text:
-            text = text.split("```")[1].split("```")[0]
-
-        start = text.find("{")
-        end = text.rfind("}") + 1
-        if start >= 0 and end > start:
-            data = json.loads(text[start:end])
-            decision = data.get("decision", "revise").lower()
-            if decision not in ("approve", "reject", "revise"):
-                decision = "revise"
-            return ReviewResult(
-                decision=decision,
-                feedback=data.get("feedback", ""),
-            )
-    except (json.JSONDecodeError, KeyError, IndexError) as e:
-        logger.warning("Failed to parse supervisor decision: %s", e)
-
-    return ReviewResult(decision="revise", feedback="Could not parse supervisor response; requesting revision for safety")
+        data = json.loads(json_str)
+        # Use Pydantic for validation
+        return ReviewResult(**data)
+    except (json.JSONDecodeError, ValidationError) as e:
+        logger.warning("Failed to parse or validate supervisor decision: %s. Content: %s", e, content)
+        return ReviewResult(decision="revise", feedback=f"Could not parse or validate supervisor response: {e}; requesting revision for safety")

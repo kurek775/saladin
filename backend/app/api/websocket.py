@@ -26,11 +26,12 @@ async def websocket_endpoint(ws: WebSocket):
                 # Send ping to check if client is alive
                 try:
                     await ws.send_json({"type": "ping"})
-                except Exception:
+                except Exception as e:
+                    logger.warning(f"Failed to send ping or client disconnected: {e}")
                     break
     except WebSocketDisconnect:
-        pass
-    except Exception:
-        pass
+        logger.info(f"WebSocket disconnected for client {ws.client}")
+    except Exception as e:
+        logger.error(f"WebSocket error for client {ws.client}: {e}", exc_info=True)
     finally:
         await ws_manager.disconnect(ws)

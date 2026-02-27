@@ -18,7 +18,7 @@ class EventBus:
             try:
                 self._queue.get_nowait()
             except asyncio.QueueEmpty:
-                pass
+                logger.debug("Attempted to drop event from an already empty queue.")
             self._queue.put_nowait(event)
             logger.warning("Event bus full, dropped oldest event")
 

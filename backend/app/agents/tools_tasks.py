@@ -37,7 +37,7 @@ async def create_task(description: str) -> str:
         return f"Created follow-up task {task.id} (depth={task.depth})"
     except AutoTaskError as e:
         logger.warning("Auto-task creation blocked: %s", e)
-        return f"Cannot create task: {e}"
+        return f"BLOCKED — {e}. Do NOT retry this call. Move on to your next action."
     except Exception as e:
         logger.exception("Failed to create follow-up task: %s", e)
         return f"Error creating task: {e}"

@@ -48,6 +48,28 @@ class Settings(BaseSettings):
     SANDBOX_NETWORK: bool = False
     SANDBOX_VOLUME_NAME: str = "saladin_workspace"
 
+    # Broadcast loop
+    BROADCAST_ERROR_DELAY: int = 5
+    MAX_BROADCAST_ERROR_COUNT: int = 5
+
+    # Sandbox image pre-pull
+    SANDBOX_PULL_RETRIES: int = 3
+    SANDBOX_PULL_RETRY_DELAY: int = 10
+
+    # Worker Agent Tools
+    DEFAULT_WORKER_TOOL_NAMES: list[str] = [
+        "search_memory",
+        "store_memory",
+        "summarize_text",
+        "read_file",
+        "write_file",
+        "list_files",
+        "search_code",
+        "run_command",
+        "create_task",
+        "append_improvement_note",
+    ]
+
     model_config = {"env_file": ".env", "extra": "ignore"}
 
 

@@ -1,6 +1,7 @@
-from typing import TypedDict, Annotated
+from typing import TypedDict, Annotated, Literal
 from langchain_core.messages import BaseMessage
 from langgraph.graph.message import add_messages
+from pydantic import BaseModel, Field # Import BaseModel and Field
 
 from app.models.domain import SupervisorDecision
 
@@ -11,9 +12,14 @@ class WorkerResult(TypedDict):
     output: str
 
 
-class ReviewResult(TypedDict):
-    decision: str  # approve / reject / revise
-    feedback: str
+# Change ReviewResult to Pydantic BaseModel
+class ReviewResult(BaseModel):
+    decision: Literal["approve", "reject", "revise"] = Field(
+        ..., description="The supervisor's decision: 'approve', 'reject', or 'revise'."
+    )
+    feedback: str = Field(
+        default="", description="Detailed feedback from the supervisor."
+    )
 
 
 class SaladinState(TypedDict):
