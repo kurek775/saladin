@@ -22,6 +22,7 @@ const statusConfig: Record<StatusKey, StatusConfig> = {
   approved: { label: 'Approved', dot: 'bg-green-500', bg: 'bg-green-500/10', text: 'text-green-500' },
   rejected: { label: 'Rejected', dot: 'bg-red-500', bg: 'bg-red-500/10', text: 'text-red-500' },
   failed: { label: 'Failed', dot: 'bg-red-600', bg: 'bg-red-600/10', text: 'text-red-600' },
+  pending_human_approval: { label: 'Awaiting Approval', dot: 'bg-amber-500', bg: 'bg-amber-500/10', text: 'text-amber-500' },
 }
 
 const FALLBACK: StatusConfig = statusConfig.idle

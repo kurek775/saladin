@@ -54,6 +54,35 @@ def search_chroma(agent_id: str, query: str, k: int = 5) -> list[str]:
         return []
 
 
+def search_chroma_with_scores(agent_id: str, query: str, k: int = 5) -> list[tuple[str, float]]:
+    """Search ChromaDB and return (document, score) tuples.
+
+    ChromaDB returns distances — we convert to similarity scores (1 - distance).
+    """
+    try:
+        collection = _get_collection(agent_id)
+        if collection.count() == 0:
+            return []
+
+        results = collection.query(
+            query_texts=[query],
+            n_results=min(k, collection.count()),
+            include=["documents", "distances"],
+        )
+
+        documents = results.get("documents", [[]])[0]
+        distances = results.get("distances", [[]])[0]
+
+        scored = []
+        for doc, dist in zip(documents, distances):
+            score = max(0.0, 1.0 - dist)  # Convert distance to similarity
+            scored.append((doc, score))
+        return scored
+    except Exception as e:
+        logger.error("ChromaDB scored search error: %s", e)
+        return []
+
+
 def store_chroma(agent_id: str, content: str) -> None:
     """Store a memory entry in ChromaDB for a specific agent."""
     try:
@@ -64,6 +93,14 @@ def store_chroma(agent_id: str, content: str) -> None:
             ids=[doc_id],
         )
         logger.info("Stored memory for agent %s: %s", agent_id, doc_id)
+
+        # Also update BM25 index
+        try:
+            from app.services.search.bm25_index import add_document
+            add_document(agent_id, content)
+        except Exception:
+            pass
+
     except Exception as e:
         logger.error("ChromaDB store error: %s", e)
         raise

@@ -12,7 +12,7 @@ const PROVIDER_MODELS: Record<string, string[]> = {
   '': [],
   anthropic: ['claude-sonnet-4-20250514', 'claude-haiku-4-20250414'],
   openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'o3-mini'],
-  gemini: ['gemini-2.0-flash', 'gemini-2.5-pro-preview-06-05'],
+  gemini: ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-2.0-flash'],
   ollama: ['llama3', 'mistral', 'codellama', 'mixtral'],
 }
 
@@ -30,6 +30,17 @@ export function AgentsPage() {
   const [llmModel, setLlmModel] = useState('')
 
   if (query.isLoading) return <LoadingSpinner />
+  if (query.isError) {
+    return (
+      <div className="max-w-7xl mx-auto flex flex-col items-center justify-center py-20 text-center">
+        <p className="text-destructive font-semibold mb-2">Failed to load agents</p>
+        <p className="text-sm text-muted-foreground mb-4">{query.error?.message}</p>
+        <button onClick={() => query.refetch()} className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
+          Retry
+        </button>
+      </div>
+    )
+  }
 
   const handleProviderChange = (provider: LLMProvider) => {
     setLlmProvider(provider)

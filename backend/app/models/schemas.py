@@ -36,6 +36,12 @@ class AgentResponse(BaseModel):
 class TaskCreate(BaseModel):
     description: str
     assigned_agents: list[str] = []  # Agent IDs; empty = use all workers
+    requires_human_approval: bool = False
+
+
+class HumanDecision(BaseModel):
+    decision: str  # approve / reject / revise
+    feedback: str = ""
 
 
 class WorkerOutputResponse(BaseModel):
@@ -79,5 +85,5 @@ class TaskListResponse(BaseModel):
 # --- WebSocket event ---
 
 class WSEvent(BaseModel):
-    type: str  # task_update, agent_update, log, worker_output, supervisor_review
+    type: str  # task_update, agent_update, log, worker_output, supervisor_review, human_approval_required, telemetry
     data: dict

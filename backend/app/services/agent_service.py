@@ -3,28 +3,27 @@ import dataclasses
 
 from app.models.domain import AgentConfig, AgentRole, AgentStatus
 from app.models.schemas import AgentCreate, AgentUpdate, WSEvent
-from app.core.store import store
 from app.core.event_bus import event_bus
+from app.core.repository import get_agent_repo
 
 # Per-agent locks for status updates
 _agent_locks: dict[str, asyncio.Lock] = {}
 
 
 def list_agents(skip: int = 0, limit: int = 100) -> list[AgentConfig]:
-    all_agents = list(store.agents.values())
-    return all_agents[skip:skip + limit]
+    return get_agent_repo().list(skip, limit)
 
 
 def agent_count() -> int:
-    return len(store.agents)
+    return get_agent_repo().count()
 
 
 def get_agent(agent_id: str) -> AgentConfig | None:
-    return store.agents.get(agent_id)
+    return get_agent_repo().get(agent_id)
 
 
 def get_workers() -> list[AgentConfig]:
-    return [a for a in store.agents.values() if a.role == AgentRole.WORKER]
+    return [a for a in get_agent_repo().list(0, 10000) if a.role == AgentRole.WORKER]
 
 
 async def create_agent(data: AgentCreate) -> AgentConfig:
@@ -35,7 +34,7 @@ async def create_agent(data: AgentCreate) -> AgentConfig:
         llm_provider=data.llm_provider,
         llm_model=data.llm_model,
     )
-    store.agents[agent.id] = agent
+    get_agent_repo().save(agent)
     await event_bus.publish(WSEvent(
         type="agent_update",
         data={"action": "created", "agent": _agent_dict(agent)},
@@ -44,7 +43,8 @@ async def create_agent(data: AgentCreate) -> AgentConfig:
 
 
 async def update_agent(agent_id: str, data: AgentUpdate) -> AgentConfig | None:
-    agent = store.agents.get(agent_id)
+    repo = get_agent_repo()
+    agent = repo.get(agent_id)
     if agent is None:
         return None
     updates = {}
@@ -58,7 +58,7 @@ async def update_agent(agent_id: str, data: AgentUpdate) -> AgentConfig | None:
         updates["llm_model"] = data.llm_model
     if updates:
         agent = dataclasses.replace(agent, **updates)
-        store.agents[agent_id] = agent
+        repo.save(agent)
     await event_bus.publish(WSEvent(
         type="agent_update",
         data={"action": "updated", "agent": _agent_dict(agent)},
@@ -67,9 +67,9 @@ async def update_agent(agent_id: str, data: AgentUpdate) -> AgentConfig | None:
 
 
 async def delete_agent(agent_id: str) -> bool:
-    if agent_id not in store.agents:
+    deleted = get_agent_repo().delete(agent_id)
+    if not deleted:
         return False
-    del store.agents[agent_id]
     _agent_locks.pop(agent_id, None)
     await event_bus.publish(WSEvent(
         type="agent_update",
@@ -82,10 +82,11 @@ async def set_agent_status(agent_id: str, status: AgentStatus) -> None:
     if agent_id not in _agent_locks:
         _agent_locks[agent_id] = asyncio.Lock()
     async with _agent_locks[agent_id]:
-        agent = store.agents.get(agent_id)
+        repo = get_agent_repo()
+        agent = repo.get(agent_id)
         if agent:
             updated = dataclasses.replace(agent, status=status)
-            store.agents[agent_id] = updated
+            repo.save(updated)
             await event_bus.publish(WSEvent(
                 type="agent_update",
                 data={"action": "status_changed", "agent": _agent_dict(updated)},

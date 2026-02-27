@@ -27,3 +27,15 @@ def store_memory(content: str, agent_id: str = "") -> str:
     from app.services.memory_service import store_memory_entry
     store_memory_entry(agent_id, content)
     return "Memory stored successfully."
+
+
+@tool
+def summarize_text(text: str, max_length: int = 3000) -> str:
+    """Summarize long text into a concise version while preserving key information.
+
+    Args:
+        text: The text to summarize.
+        max_length: Maximum character length threshold.
+    """
+    from app.agents.tools_summarize import summarize_text as _summarize
+    return _summarize.invoke({"text": text, "max_length": max_length})

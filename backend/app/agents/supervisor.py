@@ -13,20 +13,30 @@ MAX_OUTPUT_PER_WORKER = 4000
 MAX_TOTAL_OUTPUT = 12000
 
 
-async def supervisor_review(state: SaladinState) -> dict:
-    """Supervisor node: reviews worker outputs and returns a decision."""
-    llm = create_llm(max_tokens=2048)
+def _smart_truncate(text: str, max_length: int) -> str:
+    """Intelligently truncate or summarize text."""
+    if len(text) <= max_length:
+        return text
 
-    # Format worker outputs for review with truncation
+    try:
+        from app.agents.tools_summarize import summarize_text
+        return summarize_text.invoke({"text": text, "max_length": max_length})
+    except Exception:
+        return text[:max_length] + "\n[... truncated ...]"
+
+
+async def supervisor_review(state: SaladinState, llm_provider: str = "", llm_model: str = "") -> dict:
+    """Supervisor node: reviews worker outputs and returns a decision."""
+    llm = create_llm(provider=llm_provider, model=llm_model, max_tokens=2048)
+
+    # Format worker outputs for review with intelligent summarization
     output_parts = []
     for wo in state["worker_outputs"]:
-        text = wo["output"]
-        if len(text) > MAX_OUTPUT_PER_WORKER:
-            text = text[:MAX_OUTPUT_PER_WORKER] + "\n[... truncated ...]"
+        text = _smart_truncate(wo["output"], MAX_OUTPUT_PER_WORKER)
         output_parts.append(f"\n--- Worker: {wo['agent_name']} ---\n{text}")
     outputs_text = "\n".join(output_parts)
     if len(outputs_text) > MAX_TOTAL_OUTPUT:
-        outputs_text = outputs_text[:MAX_TOTAL_OUTPUT] + "\n[... truncated ...]"
+        outputs_text = _smart_truncate(outputs_text, MAX_TOTAL_OUTPUT)
 
     revision = state.get("current_revision", 0)
     max_revisions = state.get("max_revisions", 3)
@@ -41,7 +51,6 @@ async def supervisor_review(state: SaladinState) -> dict:
     response = await llm.ainvoke([HumanMessage(content=prompt)])
     content = response.content
 
-    # Parse the JSON decision from the response
     decision = _parse_decision(content)
 
     return {
@@ -53,21 +62,19 @@ async def supervisor_review(state: SaladinState) -> dict:
 def _parse_decision(content: str) -> ReviewResult:
     """Extract JSON decision from supervisor response."""
     try:
-        # Try to find JSON in the response
         text = content
         if "```json" in text:
             text = text.split("```json")[1].split("```")[0]
         elif "```" in text:
             text = text.split("```")[1].split("```")[0]
 
-        # Try to find a JSON object
         start = text.find("{")
         end = text.rfind("}") + 1
         if start >= 0 and end > start:
             data = json.loads(text[start:end])
-            decision = data.get("decision", "approve").lower()
+            decision = data.get("decision", "revise").lower()
             if decision not in ("approve", "reject", "revise"):
-                decision = "approve"
+                decision = "revise"
             return ReviewResult(
                 decision=decision,
                 feedback=data.get("feedback", ""),
@@ -75,5 +82,4 @@ def _parse_decision(content: str) -> ReviewResult:
     except (json.JSONDecodeError, KeyError, IndexError) as e:
         logger.warning("Failed to parse supervisor decision: %s", e)
 
-    # Default to approve if parsing fails
-    return ReviewResult(decision="approve", feedback="Auto-approved (parse error)")
+    return ReviewResult(decision="revise", feedback="Could not parse supervisor response; requesting revision for safety")

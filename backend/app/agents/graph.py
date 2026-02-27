@@ -8,18 +8,67 @@ from langgraph.graph import StateGraph, END
 from app.agents.state import SaladinState, WorkerResult
 from app.agents.supervisor import supervisor_review
 from app.agents.worker import create_worker_agent
-from app.agents.callbacks import SaladinCallbackHandler
+from app.agents.callbacks_telemetry import TelemetryCallbackHandler
 from app.models.domain import (
     TaskRecord, TaskStatus, WorkerOutput, SupervisorReview, SupervisorDecision,
 )
 from app.models.schemas import WSEvent
-from app.core.store import store
 from app.core.event_bus import event_bus
 from app.services.agent_service import set_agent_status, get_agent
+from app.services.persistence import get_task, save_task
 from app.models.domain import AgentStatus
 
 logger = logging.getLogger(__name__)
 
+
+# ── Helper functions for task mutation via service layer ──
+
+def _persist_worker_outputs(task_id: str, results: list[WorkerResult], revision: int) -> None:
+    task = get_task(task_id)
+    if task:
+        for r in results:
+            task.worker_outputs.append(WorkerOutput(
+                agent_id=r["agent_id"],
+                agent_name=r["agent_name"],
+                output=r["output"],
+                revision=revision,
+            ))
+        task.status = TaskStatus.UNDER_REVIEW
+        task.updated_at = datetime.now(UTC).isoformat()
+        save_task(task)
+
+
+def _persist_supervisor_review(task_id: str, review: dict, revision: int) -> None:
+    task = get_task(task_id)
+    if task:
+        task.supervisor_reviews.append(SupervisorReview(
+            decision=SupervisorDecision(review["decision"]),
+            feedback=review["feedback"],
+            revision=revision,
+        ))
+        task.updated_at = datetime.now(UTC).isoformat()
+        save_task(task)
+
+
+def _finalize_task(task_id: str, status: TaskStatus, final_output: str) -> None:
+    task = get_task(task_id)
+    if task:
+        task.status = status
+        task.final_output = final_output
+        task.updated_at = datetime.now(UTC).isoformat()
+        save_task(task)
+
+
+def _update_revision(task_id: str, new_revision: int) -> None:
+    task = get_task(task_id)
+    if task:
+        task.current_revision = new_revision
+        task.status = TaskStatus.REVISION
+        task.updated_at = datetime.now(UTC).isoformat()
+        save_task(task)
+
+
+# ── Graph Nodes ──
 
 async def dispatch_workers(state: SaladinState) -> dict:
     """Run all assigned worker agents in parallel."""
@@ -43,7 +92,7 @@ async def dispatch_workers(state: SaladinState) -> dict:
         await set_agent_status(agent_id, AgentStatus.BUSY)
 
         try:
-            callback = SaladinCallbackHandler(
+            callback = TelemetryCallbackHandler(
                 task_id=task_id,
                 agent_id=agent_id,
                 agent_name=agent_config.name,
@@ -66,8 +115,15 @@ async def dispatch_workers(state: SaladinState) -> dict:
                 config={"callbacks": [callback]},
             )
 
-            # Extract the final message content
-            output_text = result["messages"][-1].content if result["messages"] else ""
+            raw_content = result["messages"][-1].content if result["messages"] else ""
+            # Normalize content — some models (Gemini) return a list of blocks
+            if isinstance(raw_content, list):
+                output_text = "\n".join(
+                    block.get("text", str(block)) if isinstance(block, dict) else str(block)
+                    for block in raw_content
+                )
+            else:
+                output_text = str(raw_content)
 
             await event_bus.publish(WSEvent(
                 type="worker_output",
@@ -75,7 +131,7 @@ async def dispatch_workers(state: SaladinState) -> dict:
                     "task_id": task_id,
                     "agent_id": agent_id,
                     "agent_name": agent_config.name,
-                    "output": output_text[:500],  # Preview
+                    "output": output_text[:500],
                     "revision": revision,
                     "timestamp": datetime.now(UTC).isoformat(),
                 },
@@ -102,18 +158,8 @@ async def dispatch_workers(state: SaladinState) -> dict:
     worker_results = await asyncio.gather(*tasks)
     results = [r for r in worker_results if r is not None]
 
-    # Persist worker outputs to the task record
-    task = store.tasks.get(task_id)
-    if task:
-        for r in results:
-            task.worker_outputs.append(WorkerOutput(
-                agent_id=r["agent_id"],
-                agent_name=r["agent_name"],
-                output=r["output"],
-                revision=revision,
-            ))
-        task.status = TaskStatus.UNDER_REVIEW
-        task.updated_at = datetime.now(UTC).isoformat()
+    # Persist worker outputs via service layer
+    _persist_worker_outputs(task_id, results, revision)
 
     await event_bus.publish(WSEvent(
         type="task_update",
@@ -140,18 +186,24 @@ async def review_node(state: SaladinState) -> dict:
         },
     ))
 
-    result = await supervisor_review(state)
+    # Check if human-in-the-loop is required
+    requires_approval = state.get("requires_human_approval", False)
+
+    # Use the same LLM provider as the first assigned agent so the supervisor
+    # doesn't fail when only a non-default provider key is available (BYOK).
+    sup_provider, sup_model = "", ""
+    agent_ids = state.get("assigned_agent_ids", [])
+    if agent_ids:
+        first_agent = get_agent(agent_ids[0])
+        if first_agent:
+            sup_provider = first_agent.llm_provider
+            sup_model = first_agent.llm_model
+
+    result = await supervisor_review(state, llm_provider=sup_provider, llm_model=sup_model)
     review = result["supervisor_review"]
 
-    # Persist to task record
-    task = store.tasks.get(task_id)
-    if task:
-        task.supervisor_reviews.append(SupervisorReview(
-            decision=SupervisorDecision(review["decision"]),
-            feedback=review["feedback"],
-            revision=state.get("current_revision", 0),
-        ))
-        task.updated_at = datetime.now(UTC).isoformat()
+    # Persist to task record via service layer
+    _persist_supervisor_review(task_id, review, state.get("current_revision", 0))
 
     await event_bus.publish(WSEvent(
         type="supervisor_review",
@@ -163,6 +215,44 @@ async def review_node(state: SaladinState) -> dict:
             "timestamp": datetime.now(UTC).isoformat(),
         },
     ))
+
+    # Human-in-the-loop: interrupt if approval required
+    if requires_approval:
+        task = get_task(task_id)
+        if task:
+            task.status = TaskStatus.PENDING_HUMAN_APPROVAL
+            task.updated_at = datetime.now(UTC).isoformat()
+            save_task(task)
+
+        await event_bus.publish(WSEvent(
+            type="human_approval_required",
+            data={
+                "task_id": task_id,
+                "supervisor_decision": review["decision"],
+                "supervisor_feedback": review["feedback"],
+                "timestamp": datetime.now(UTC).isoformat(),
+            },
+        ))
+
+        try:
+            from langgraph.types import interrupt
+            human_decision = interrupt({
+                "supervisor_decision": review["decision"],
+                "supervisor_feedback": review["feedback"],
+            })
+            # Human override
+            if isinstance(human_decision, dict) and human_decision.get("decision"):
+                review = {
+                    "decision": human_decision["decision"],
+                    "feedback": human_decision.get("feedback", review["feedback"]),
+                }
+                result["supervisor_review"] = review
+                # Persist the overridden review
+                _persist_supervisor_review(
+                    task_id, review, state.get("current_revision", 0),
+                )
+        except ImportError:
+            logger.warning("LangGraph interrupt not available, skipping HITL")
 
     return result
 
@@ -181,7 +271,7 @@ def should_continue(state: SaladinState) -> str:
         current = state.get("current_revision", 0)
         max_rev = state.get("max_revisions", 3)
         if current >= max_rev:
-            return "approve"  # Hit max revisions, auto-approve
+            return "approve"
         return "revise"
     else:  # reject
         return "reject"
@@ -191,13 +281,12 @@ async def approve_node(state: SaladinState) -> dict:
     """Finalize task as approved."""
     task_id = state["task_id"]
     outputs = state.get("worker_outputs", [])
-    final = "\n\n".join(wo["output"] for wo in outputs) if outputs else ""
+    final = "\n\n".join(
+        wo["output"] if isinstance(wo["output"], str) else str(wo["output"])
+        for wo in outputs
+    ) if outputs else ""
 
-    task = store.tasks.get(task_id)
-    if task:
-        task.status = TaskStatus.APPROVED
-        task.final_output = final
-        task.updated_at = datetime.now(UTC).isoformat()
+    _finalize_task(task_id, TaskStatus.APPROVED, final)
 
     await event_bus.publish(WSEvent(
         type="task_update",
@@ -211,19 +300,16 @@ async def reject_node(state: SaladinState) -> dict:
     """Finalize task as rejected."""
     task_id = state["task_id"]
     review = state.get("supervisor_review", {})
+    final = review.get("feedback", "Rejected by supervisor")
 
-    task = store.tasks.get(task_id)
-    if task:
-        task.status = TaskStatus.REJECTED
-        task.final_output = review.get("feedback", "Rejected by supervisor")
-        task.updated_at = datetime.now(UTC).isoformat()
+    _finalize_task(task_id, TaskStatus.REJECTED, final)
 
     await event_bus.publish(WSEvent(
         type="task_update",
         data={"action": "completed", "task": {"id": task_id, "status": "rejected"}},
     ))
 
-    return {"final_output": review.get("feedback", ""), "status": "rejected"}
+    return {"final_output": final, "status": "rejected"}
 
 
 async def revise_node(state: SaladinState) -> dict:
@@ -231,11 +317,7 @@ async def revise_node(state: SaladinState) -> dict:
     task_id = state["task_id"]
     new_revision = state.get("current_revision", 0) + 1
 
-    task = store.tasks.get(task_id)
-    if task:
-        task.current_revision = new_revision
-        task.status = TaskStatus.REVISION
-        task.updated_at = datetime.now(UTC).isoformat()
+    _update_revision(task_id, new_revision)
 
     await event_bus.publish(WSEvent(
         type="task_update",
@@ -257,21 +339,20 @@ async def revise_node(state: SaladinState) -> dict:
     return {"current_revision": new_revision, "status": "revision", "worker_outputs": []}
 
 
-def build_graph() -> StateGraph:
+# ── Graph Builder ──
+
+def build_graph(checkpointer=None) -> StateGraph:
     """Build the Saladin orchestration graph."""
     graph = StateGraph(SaladinState)
 
-    # Add nodes
     graph.add_node("dispatch_workers", dispatch_workers)
     graph.add_node("review", review_node)
     graph.add_node("approve", approve_node)
     graph.add_node("reject", reject_node)
     graph.add_node("revise", revise_node)
 
-    # Set entry point
     graph.set_entry_point("dispatch_workers")
 
-    # Edges
     graph.add_edge("dispatch_workers", "review")
     graph.add_conditional_edges(
         "review",
@@ -286,18 +367,32 @@ def build_graph() -> StateGraph:
     graph.add_edge("approve", END)
     graph.add_edge("reject", END)
 
-    return graph.compile()
+    return graph.compile(checkpointer=checkpointer)
 
 
-# Cache the compiled graph — structure is static, state is per-invocation
+def _get_checkpointer():
+    """Get PostgresSaver checkpointer when using postgres backend."""
+    from app.config import settings
+    if settings.STORAGE_BACKEND == "postgres":
+        try:
+            from langgraph.checkpoint.postgres import PostgresSaver
+            return PostgresSaver.from_conn_string(settings.DATABASE_URL)
+        except (ImportError, Exception) as e:
+            logger.warning("PostgresSaver not available: %s", e)
+    return None
+
+
 _compiled_graph = None
+_checkpointer = None
 
 
 async def run_graph(task: TaskRecord) -> None:
     """Execute the full orchestration graph for a task."""
-    global _compiled_graph
+    global _compiled_graph, _checkpointer
+
     if _compiled_graph is None:
-        _compiled_graph = build_graph()
+        _checkpointer = _get_checkpointer()
+        _compiled_graph = build_graph(checkpointer=_checkpointer)
     compiled = _compiled_graph
 
     initial_state: SaladinState = {
@@ -311,6 +406,21 @@ async def run_graph(task: TaskRecord) -> None:
         "max_revisions": task.max_revisions,
         "final_output": "",
         "status": "running",
+        "requires_human_approval": getattr(task, 'requires_human_approval', False),
+        "human_decision": None,
     }
 
-    await compiled.ainvoke(initial_state)
+    config = {}
+    if _checkpointer:
+        config["configurable"] = {"thread_id": task.id}
+
+    from app.config import settings
+    try:
+        await asyncio.wait_for(
+            compiled.ainvoke(initial_state, config=config if config else None),
+            timeout=settings.GRAPH_TIMEOUT_SECONDS,
+        )
+    except asyncio.TimeoutError:
+        logger.error("Graph execution timed out for task %s after %ds", task.id, settings.GRAPH_TIMEOUT_SECONDS)
+        _finalize_task(task.id, TaskStatus.FAILED, f"Execution timed out after {settings.GRAPH_TIMEOUT_SECONDS}s")
+        raise

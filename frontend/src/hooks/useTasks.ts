@@ -32,7 +32,7 @@ export function useTask(id: string) {
 export function useCreateTask() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (data: { description: string; assigned_agents?: string[] }) =>
+    mutationFn: (data: { description: string; assigned_agents?: string[]; requires_human_approval?: boolean }) =>
       createTask(data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks'] }),
   })

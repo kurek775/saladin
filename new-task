@@ -1,0 +1,65 @@
+# Saladin: Professional Evolution Roadmap
+
+## Objective
+Transform the current MVP (In-memory, single-user, .env-based) into a production-grade, multi-user, and secure AI Agent Orchestration Platform.
+
+---
+
+## Phase 1: Security & BYOK (Bring Your Own Key) Architecture
+**Goal:** Eliminate the security risk of server-side key storage and move to a client-side management model.
+
+1.  **Client-Side Storage:** Implement a "Settings" module in the React frontend using `localStorage` to store LLM API keys (OpenAI, Anthropic, Gemini).
+2.  **Request Middleware:** Update the FastAPI backend to intercept incoming task requests.
+    * Extract keys from custom HTTP headers: `X-OpenAI-Key`, `X-Anthropic-Key`, etc.
+    * Inject these keys into the LangChain/LangGraph context dynamically per request.
+3.  **Zero-Persistence Policy:** Ensure backend logs and error traces are scrubbed of any strings matching API key patterns.
+
+---
+
+## Phase 2: Relational Persistence (PostgreSQL & SQLModel)
+**Goal:** Replace the `InMemoryStore` with a robust database to allow for task recovery and historical analysis.
+
+1.  **Schema Design:** Use `SQLModel` to define the following entities:
+    * `Agent`: Configuration, system prompts, and metadata.
+    * `Task`: Status, user requirements, and timestamps.
+    * `ExecutionLog`: Granular steps taken by the graph, including worker outputs and supervisor decisions.
+2.  **State Checkpointing:** Implement LangGraph’s `PostgresSaver`. This allows the graph state machine to "hibernate" and resume perfectly after a server restart.
+3.  **Migration:** Refactor the existing service layer to perform CRUD operations against Postgres instead of Python dictionaries.
+
+---
+
+## Phase 3: Hybrid Search & Advanced Retrieval
+**Goal:** Improve RAG accuracy by combining semantic (vector) and keyword (BM25) search.
+
+1.  **Hybrid Indexing:** Update the `Agent Memory` service to index documents in ChromaDB using both vector embeddings and traditional keyword tokens.
+2.  **Reciprocal Rank Fusion (RRF):** Implement the RRF algorithm to merge search results:
+    $$RRFscore(d \in D) = \sum_{r \in R} \frac{1}{k + r(d)}$$
+    * This ensures that precise terms (like product IDs) and conceptual meanings (semantics) are both captured in the top results.
+3.  **Context Window Management:** Implement a "summarization" tool for long worker outputs before they are sent to the Supervisor to prevent token limit overflows.
+
+---
+
+## Phase 4: Scalability & Resilience (LLMOps)
+**Goal:** Handle concurrent users and manage LLM provider rate limits.
+
+1.  **Task Queueing:** Integrate **Redis** and **Celery/RQ** to handle background graph executions.
+2.  **Rate Limiting:** Implement a "Leaky Bucket" algorithm for LLM calls to prevent `429 Too Many Requests` errors.
+3.  **Graceful Degradation:** If a worker fails or an API times out, implement an exponential backoff retry logic within the LangGraph nodes.
+
+---
+
+## Phase 5: Human-in-the-loop & Evaluation
+**Goal:** Enable expert oversight and automated quality measurement.
+
+1.  **Breakpoints:** Configure the LangGraph `Supervisor` node to pause execution for high-stakes tasks, requiring a manual `Approve` via the WebSocket dashboard before proceeding.
+2.  **RAGAS Evaluation:** Integrate the RAGAS framework to score every execution on:
+    * **Faithfulness:** Does the answer match the retrieved documents?
+    * **Answer Relevance:** Does it actually answer the user's prompt?
+3.  **Real-Time Telemetry:** Enhance the WebSocket stream to include "Token Usage" and "Estimated Cost" per task, calculated based on the current model's pricing.
+
+---
+
+## Technical Stack Update Requirements
+- **Backend:** `sqlmodel`, `psycopg2-binary`, `langgraph-checkpoint-postgres`, `redis`.
+- **Frontend:** `shadcn/ui` for the settings/keys modal, `lucide-react` for status indicators.
+- **Infrastructure:** `docker-compose` setup including `postgres` and `redis` containers.

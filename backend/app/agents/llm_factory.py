@@ -45,30 +45,36 @@ def create_llm(
 
 def _create_anthropic(model: str, api_key: str, max_tokens: int) -> BaseChatModel:
     from langchain_anthropic import ChatAnthropic
+    from app.core.key_context import get_request_keys
 
+    key = api_key or get_request_keys().anthropic or settings.ANTHROPIC_API_KEY
     return ChatAnthropic(
         model=model,
-        api_key=api_key or settings.ANTHROPIC_API_KEY,
+        api_key=key,
         max_tokens=max_tokens,
     )
 
 
 def _create_openai(model: str, api_key: str, max_tokens: int) -> BaseChatModel:
     from langchain_openai import ChatOpenAI
+    from app.core.key_context import get_request_keys
 
+    key = api_key or get_request_keys().openai or settings.OPENAI_API_KEY
     return ChatOpenAI(
         model=model,
-        api_key=api_key or settings.OPENAI_API_KEY,
+        api_key=key,
         max_tokens=max_tokens,
     )
 
 
 def _create_gemini(model: str, api_key: str, max_tokens: int) -> BaseChatModel:
     from langchain_google_genai import ChatGoogleGenerativeAI
+    from app.core.key_context import get_request_keys
 
+    key = api_key or get_request_keys().google or settings.GOOGLE_API_KEY
     return ChatGoogleGenerativeAI(
         model=model,
-        google_api_key=api_key or settings.GOOGLE_API_KEY,
+        google_api_key=key,
         max_output_tokens=max_tokens,
     )
 

@@ -23,6 +23,7 @@ class TaskStatus(str, Enum):
     APPROVED = "approved"
     REJECTED = "rejected"
     FAILED = "failed"
+    PENDING_HUMAN_APPROVAL = "pending_human_approval"
 
 
 class SupervisorDecision(str, Enum):
@@ -71,5 +72,6 @@ class TaskRecord:
     current_revision: int = 0
     max_revisions: int = 3
     final_output: str = ""
+    requires_human_approval: bool = False
     created_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
     updated_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())

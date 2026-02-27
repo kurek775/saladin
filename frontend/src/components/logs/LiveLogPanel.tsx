@@ -9,11 +9,16 @@ export function LiveLogPanel({ taskId }: { taskId?: string }) {
   const clearLogs = useStore((s) => s.clearLogs)
   const bottomRef = useRef<HTMLDivElement>(null)
   const [isAutoScroll, setIsAutoScroll] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
 
-  const filtered = useMemo(
-    () => (taskId ? logs.filter((l) => l.task_id === taskId) : logs),
-    [logs, taskId]
-  )
+  const filtered = useMemo(() => {
+    let result = taskId ? logs.filter((l) => l.task_id === taskId) : logs
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase()
+      result = result.filter((l) => l.message.toLowerCase().includes(q))
+    }
+    return result
+  }, [logs, taskId, searchQuery])
 
   useEffect(() => {
     if (isAutoScroll) {
@@ -38,9 +43,11 @@ export function LiveLogPanel({ taskId }: { taskId?: string }) {
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2 px-2 py-1 rounded bg-muted/30 border border-transparent focus-within:border-primary/30 transition-colors group">
             <Search className="size-3 text-muted-foreground group-focus-within:text-primary transition-colors" />
-            <input 
-              type="text" 
-              placeholder="Filter logs..." 
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Filter logs..."
               className="bg-transparent border-none outline-none text-xs w-24 focus:w-40 transition-all placeholder:text-muted-foreground/50"
             />
           </div>

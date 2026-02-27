@@ -45,10 +45,10 @@ def _to_response(agent) -> dict:
     return {
         "id": agent.id,
         "name": agent.name,
-        "role": agent.role,
+        "role": agent.role.value if hasattr(agent.role, 'value') else agent.role,
         "system_prompt": agent.system_prompt,
         "llm_provider": agent.llm_provider,
         "llm_model": agent.llm_model,
-        "status": agent.status,
+        "status": agent.status.value if hasattr(agent.status, 'value') else agent.status,
         "created_at": agent.created_at,
     }

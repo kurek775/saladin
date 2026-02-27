@@ -1,33 +1,45 @@
 import { useParams, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useTask } from '../hooks/useTasks'
+import { useStore } from '../store'
 import { StatusBadge } from '../components/common/StatusBadge'
 import { TaskTimeline } from '../components/tasks/TaskTimeline'
 import { LiveLogPanel } from '../components/logs/LiveLogPanel'
 import { LoadingSpinner } from '../components/common/LoadingSpinner'
-import { ArrowLeft, ClipboardList, CheckCircle, FileText, Activity, Clock, Hash, History } from 'lucide-react'
+import { HumanApprovalPanel } from '../components/tasks/HumanApprovalPanel'
+import { ArrowLeft, ClipboardList, CheckCircle, FileText, Activity, Clock, Hash, History, Zap, DollarSign } from 'lucide-react'
 
 export function TaskDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const { data: task, isLoading } = useTask(id!)
+  const { data: task, isLoading, refetch } = useTask(id!)
+  const getTaskTelemetry = useStore((s) => s.getTaskTelemetry)
+  const telemetry = id ? getTaskTelemetry(id) : null
 
-  if (isLoading || !task) return <LoadingSpinner />
+  if (isLoading) return <LoadingSpinner />
+  if (!task) {
+    return (
+      <div className="max-w-7xl mx-auto flex flex-col items-center justify-center py-20 text-center">
+        <p className="text-destructive font-semibold mb-2">Task not found</p>
+        <Link to="/tasks" className="text-sm text-primary hover:underline">Back to Tasks</Link>
+      </div>
+    )
+  }
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, x: -10 }}
       animate={{ opacity: 1, x: 0 }}
       className="space-y-8 max-w-7xl mx-auto"
     >
       <header className="flex flex-col gap-4">
-        <Link 
-          to="/tasks" 
+        <Link
+          to="/tasks"
           className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors group w-fit"
         >
           <ArrowLeft className="size-3 group-hover:-translate-x-1 transition-transform" />
           Back to Tasks
         </Link>
-        
+
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="size-12 rounded-xl bg-primary/10 flex items-center justify-center">
@@ -65,6 +77,11 @@ export function TaskDetailPage() {
             </div>
           </section>
 
+          {/* Human Approval Panel */}
+          {task.status === 'pending_human_approval' && (
+            <HumanApprovalPanel task={task} onDecisionMade={() => refetch()} />
+          )}
+
           {/* Final Output */}
           {task.final_output && (
             <section className="bg-card border-2 border-green-500/20 rounded-xl overflow-hidden shadow-lg shadow-green-500/5 ring-4 ring-green-500/5">
@@ -95,8 +112,34 @@ export function TaskDetailPage() {
           </section>
         </div>
 
-        {/* Sidebar Logs */}
+        {/* Sidebar */}
         <div className="lg:col-span-1 space-y-6">
+          {/* Token Telemetry */}
+          {telemetry && telemetry.total_tokens > 0 && (
+            <section className="bg-card border rounded-xl p-5 space-y-3">
+              <div className="flex items-center gap-2">
+                <Zap className="size-4 text-primary" />
+                <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Token Usage</h3>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="bg-muted/30 rounded-lg p-2.5">
+                  <p className="text-[10px] text-muted-foreground uppercase">Input</p>
+                  <p className="text-sm font-bold font-mono">{telemetry.total_input_tokens.toLocaleString()}</p>
+                </div>
+                <div className="bg-muted/30 rounded-lg p-2.5">
+                  <p className="text-[10px] text-muted-foreground uppercase">Output</p>
+                  <p className="text-sm font-bold font-mono">{telemetry.total_output_tokens.toLocaleString()}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 text-xs">
+                <DollarSign className="size-3 text-muted-foreground" />
+                <span className="text-muted-foreground">Est. cost:</span>
+                <span className="font-bold font-mono">${telemetry.total_cost_usd.toFixed(4)}</span>
+              </div>
+            </section>
+          )}
+
+          {/* Logs */}
           <section className="h-full flex flex-col">
             <div className="flex items-center gap-2 mb-3 px-2">
               <Activity className="size-4 text-primary" />

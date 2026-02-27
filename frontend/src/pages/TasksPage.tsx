@@ -17,6 +17,17 @@ export function TasksPage() {
   )
 
   if (query.isLoading) return <LoadingSpinner />
+  if (query.isError) {
+    return (
+      <div className="max-w-7xl mx-auto flex flex-col items-center justify-center py-20 text-center">
+        <p className="text-destructive font-semibold mb-2">Failed to load tasks</p>
+        <p className="text-sm text-muted-foreground mb-4">{query.error?.message}</p>
+        <button onClick={() => query.refetch()} className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
+          Retry
+        </button>
+      </div>
+    )
+  }
 
   return (
     <motion.div 

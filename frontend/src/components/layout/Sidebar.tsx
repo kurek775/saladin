@@ -1,8 +1,11 @@
+import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { LayoutDashboard, ListTodo, Bot, Settings } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { cn } from '../../utils'
 import { Logo } from '../common/Logo'
+import { SettingsModal } from '../settings/SettingsModal'
+import { useStore } from '../../store'
 
 const links = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -11,6 +14,9 @@ const links = [
 ]
 
 export function Sidebar() {
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const wsConnected = useStore((s) => s.wsConnected)
+
   return (
     <aside className="w-64 bg-card border-r flex flex-col h-full">
       <div className="p-6 flex items-center gap-3">
@@ -54,12 +60,24 @@ export function Sidebar() {
         ))}
       </nav>
 
-      <div className="p-4 mt-auto">
-        <button className="flex items-center gap-3 px-3 py-2.5 w-full rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-200">
+      <div className="p-4 mt-auto space-y-2">
+        <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-muted-foreground">
+          <span className={cn(
+            'size-2 rounded-full',
+            wsConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'
+          )} />
+          {wsConnected ? 'Connected' : 'Disconnected'}
+        </div>
+        <button
+          onClick={() => setSettingsOpen(true)}
+          className="flex items-center gap-3 px-3 py-2.5 w-full rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-200"
+        >
           <Settings className="size-4" />
           Settings
         </button>
       </div>
+
+      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </aside>
   )
 }

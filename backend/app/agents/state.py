@@ -27,3 +27,6 @@ class SaladinState(TypedDict):
     max_revisions: int
     final_output: str
     status: str
+    # Phase 5: Human-in-the-Loop
+    requires_human_approval: bool
+    human_decision: dict | None

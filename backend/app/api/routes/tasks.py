@@ -30,7 +30,7 @@ def _to_list_response(task) -> dict:
     return {
         "id": task.id,
         "description": task.description,
-        "status": task.status,
+        "status": task.status.value if hasattr(task.status, 'value') else task.status,
         "assigned_agents": task.assigned_agents,
         "current_revision": task.current_revision,
         "created_at": task.created_at,
@@ -42,7 +42,7 @@ def _to_detail_response(task) -> dict:
     return {
         "id": task.id,
         "description": task.description,
-        "status": task.status,
+        "status": task.status.value if hasattr(task.status, 'value') else task.status,
         "assigned_agents": task.assigned_agents,
         "worker_outputs": [
             {
@@ -56,7 +56,7 @@ def _to_detail_response(task) -> dict:
         ],
         "supervisor_reviews": [
             {
-                "decision": sr.decision,
+                "decision": sr.decision.value if hasattr(sr.decision, 'value') else sr.decision,
                 "feedback": sr.feedback,
                 "revision": sr.revision,
                 "timestamp": sr.timestamp,

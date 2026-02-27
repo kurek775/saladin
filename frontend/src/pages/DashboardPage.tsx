@@ -25,6 +25,17 @@ export function DashboardPage() {
   const { width, containerRef, mounted } = useContainerWidth()
 
   if (agentsQuery.isLoading || tasksQuery.isLoading) return <LoadingSpinner />
+  if (agentsQuery.isError || tasksQuery.isError) {
+    return (
+      <div className="max-w-7xl mx-auto flex flex-col items-center justify-center py-20 text-center">
+        <p className="text-destructive font-semibold mb-2">Failed to load dashboard data</p>
+        <p className="text-sm text-muted-foreground mb-4">{agentsQuery.error?.message || tasksQuery.error?.message}</p>
+        <button onClick={() => { agentsQuery.refetch(); tasksQuery.refetch() }} className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors">
+          Retry
+        </button>
+      </div>
+    )
+  }
 
   return (
     <div className="max-w-7xl mx-auto space-y-6" ref={containerRef}>

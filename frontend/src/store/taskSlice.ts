@@ -6,6 +6,7 @@ export interface TaskSlice {
   setTasks: (tasks: TaskSummary[]) => void
   upsertTask: (task: TaskSummary) => void
   updateTaskStatus: (id: string, status: TaskStatus) => void
+  updateTask: (id: string, fields: Partial<TaskSummary>) => void
 }
 
 export const createTaskSlice: StateCreator<TaskSlice> = (set) => ({
@@ -19,5 +20,11 @@ export const createTaskSlice: StateCreator<TaskSlice> = (set) => ({
       const task = s.tasks[id]
       if (!task) return s
       return { tasks: { ...s.tasks, [id]: { ...task, status } } }
+    }),
+  updateTask: (id, fields) =>
+    set((s) => {
+      const task = s.tasks[id]
+      if (!task) return s
+      return { tasks: { ...s.tasks, [id]: { ...task, ...fields } } }
     }),
 })
