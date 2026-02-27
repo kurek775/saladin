@@ -74,3 +74,27 @@ async def validate_key(data: ValidateKeyRequest):
     except Exception as e:
         logger.warning("Key validation error for %s: %s", provider, type(e).__name__)
         return ValidateKeyResponse(valid=False, error=str(e))
+
+
+class SandboxModeResponse(BaseModel):
+    mode: str  # "local" | "docker"
+
+
+class SandboxModeUpdate(BaseModel):
+    mode: str
+
+
+@router.get("/sandbox-mode", response_model=SandboxModeResponse)
+async def get_sandbox_mode():
+    from app.config import settings
+    return SandboxModeResponse(mode=settings.SANDBOX_MODE)
+
+
+@router.put("/sandbox-mode", response_model=SandboxModeResponse)
+async def set_sandbox_mode(data: SandboxModeUpdate):
+    from app.config import settings
+    if data.mode not in ("local", "docker"):
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="Mode must be 'local' or 'docker'")
+    settings.SANDBOX_MODE = data.mode
+    return SandboxModeResponse(mode=settings.SANDBOX_MODE)

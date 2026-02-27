@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     GRAPH_TIMEOUT_SECONDS: int = 600  # 10 minute global timeout per task
 
     # Coding / sandbox
+    SANDBOX_MODE: str = "local"  # "local" | "docker" — local runs commands directly on host
     WORKSPACE_DIR: str = "./workspace"
     SANDBOX_IMAGE: str = "python:3.13-slim"
     SANDBOX_TIMEOUT: int = 30

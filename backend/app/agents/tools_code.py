@@ -160,21 +160,59 @@ def search_code(query: str, path: str = ".", file_pattern: str = "") -> str:
 
 
 # ---------------------------------------------------------------------------
-# Sandboxed command execution via Docker
+# Command execution — local or Docker sandboxed
 # ---------------------------------------------------------------------------
 
 
 @tool
 def run_command(command: str, timeout: int = 0) -> str:
-    """Run a shell command inside a sandboxed Docker container.
+    """Run a shell command in the workspace directory.
 
-    The container has the workspace mounted at ``/workspace`` and starts in
-    that directory.  Network access is disabled by default.
+    Depending on server configuration this runs either directly on the host
+    (``SANDBOX_MODE=local``) or inside a Docker container
+    (``SANDBOX_MODE=docker``).
 
     Args:
         command: The shell command to execute (passed to ``sh -c``).
         timeout: Max seconds to wait (0 = use server default, capped at 300).
     """
+    if settings.SANDBOX_MODE == "local":
+        return _run_local(command, timeout)
+    return _run_docker(command, timeout)
+
+
+def _run_local(command: str, timeout: int) -> str:
+    """Execute a command directly on the host inside WORKSPACE_DIR."""
+    effective_timeout = timeout if timeout > 0 else settings.SANDBOX_TIMEOUT
+    effective_timeout = min(effective_timeout, 300)
+
+    workspace = os.path.realpath(settings.WORKSPACE_DIR)
+    os.makedirs(workspace, exist_ok=True)
+
+    try:
+        result = subprocess.run(
+            ["sh", "-c", command],
+            cwd=workspace,
+            capture_output=True,
+            text=True,
+            timeout=effective_timeout,
+        )
+        stdout = result.stdout or ""
+        stderr = result.stderr or ""
+        output = f"STDOUT:\n{stdout}\nSTDERR:\n{stderr}\nEXIT CODE: {result.returncode}"
+
+        if len(output) > _OUTPUT_LIMIT:
+            output = output[:_OUTPUT_LIMIT] + "\n... [truncated]"
+        return output
+
+    except subprocess.TimeoutExpired:
+        return f"Error: command timed out after {effective_timeout}s"
+    except Exception as exc:
+        return f"Error running command: {exc}"
+
+
+def _run_docker(command: str, timeout: int) -> str:
+    """Execute a command inside a sandboxed Docker container."""
     try:
         import docker
     except ImportError:
@@ -187,8 +225,6 @@ def run_command(command: str, timeout: int = 0) -> str:
     try:
         client = docker.from_env()
 
-        # Bind-mount the host workspace so files written by write_file
-        # are visible inside the container and vice versa.
         workspace_abs = os.path.realpath(settings.WORKSPACE_DIR)
         os.makedirs(workspace_abs, exist_ok=True)
 

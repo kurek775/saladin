@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Eye, EyeOff, CheckCircle, XCircle, Loader2, Trash2 } from 'lucide-react'
+import { X, Eye, EyeOff, CheckCircle, XCircle, Loader2, Trash2, Shield, Monitor } from 'lucide-react'
 import { useStore } from '../../store'
 import { cn } from '../../utils'
 
@@ -20,6 +20,26 @@ export function SettingsModal({ open, onClose }: Props) {
   const [visible, setVisible] = useState<Record<string, boolean>>({})
   const [testing, setTesting] = useState<Record<string, boolean>>({})
   const [testResult, setTestResult] = useState<Record<string, 'valid' | 'invalid' | ''>>({})
+  const [sandboxMode, setSandboxMode] = useState<'local' | 'docker'>('local')
+
+  useEffect(() => {
+    if (open) {
+      fetch('/api/settings/sandbox-mode').then(r => r.json()).then(d => setSandboxMode(d.mode)).catch(() => {})
+    }
+  }, [open])
+
+  const toggleSandboxMode = async () => {
+    const newMode = sandboxMode === 'local' ? 'docker' : 'local'
+    try {
+      const res = await fetch('/api/settings/sandbox-mode', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: newMode }),
+      })
+      const data = await res.json()
+      setSandboxMode(data.mode)
+    } catch { /* ignore */ }
+  }
 
   const toggleVisibility = (provider: string) =>
     setVisible((v) => ({ ...v, [provider]: !v[provider] }))
@@ -134,6 +154,35 @@ export function SettingsModal({ open, onClose }: Props) {
                     </div>
                   </div>
                 ))}
+              </div>
+
+              <div className="px-6 py-4 border-t space-y-3">
+                <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Execution Mode</h3>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    {sandboxMode === 'local' ? <Monitor className="size-4 text-primary" /> : <Shield className="size-4 text-amber-500" />}
+                    <div>
+                      <p className="text-sm font-semibold">{sandboxMode === 'local' ? 'Local' : 'Docker Sandbox'}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {sandboxMode === 'local'
+                          ? 'Commands run directly on your machine — full access to local tools'
+                          : 'Commands run in isolated Docker containers — safer but limited'}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={toggleSandboxMode}
+                    className={cn(
+                      'relative inline-flex h-6 w-11 items-center rounded-full transition-colors',
+                      sandboxMode === 'local' ? 'bg-primary' : 'bg-amber-500'
+                    )}
+                  >
+                    <span className={cn(
+                      'inline-block size-4 rounded-full bg-white transition-transform',
+                      sandboxMode === 'local' ? 'translate-x-6' : 'translate-x-1'
+                    )} />
+                  </button>
+                </div>
               </div>
 
               <div className="px-6 py-4 border-t bg-muted/30 flex justify-between">
