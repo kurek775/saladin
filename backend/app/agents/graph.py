@@ -158,6 +158,11 @@ async def dispatch_workers(state: SaladinState) -> dict:
     worker_results = await asyncio.gather(*tasks)
     results = [r for r in worker_results if r is not None]
 
+    logger.info(
+        "dispatch_workers: task=%s revision=%d workers_ran=%d results=%d",
+        task_id, revision, len(agent_ids), len(results),
+    )
+
     # Persist worker outputs via service layer
     _persist_worker_outputs(task_id, results, revision)
 
@@ -201,6 +206,11 @@ async def review_node(state: SaladinState) -> dict:
 
     result = await supervisor_review(state, llm_provider=sup_provider, llm_model=sup_model)
     review = result["supervisor_review"]
+
+    logger.info(
+        "review_node: task=%s revision=%d decision=%s",
+        task_id, state.get("current_revision", 0), review["decision"],
+    )
 
     # Persist to task record via service layer
     _persist_supervisor_review(task_id, review, state.get("current_revision", 0))
@@ -280,6 +290,7 @@ def should_continue(state: SaladinState) -> str:
 async def approve_node(state: SaladinState) -> dict:
     """Finalize task as approved."""
     task_id = state["task_id"]
+    logger.info("approve_node: task=%s", task_id)
     outputs = state.get("worker_outputs", [])
     final = "\n\n".join(
         wo["output"] if isinstance(wo["output"], str) else str(wo["output"])
@@ -299,6 +310,7 @@ async def approve_node(state: SaladinState) -> dict:
 async def reject_node(state: SaladinState) -> dict:
     """Finalize task as rejected."""
     task_id = state["task_id"]
+    logger.info("reject_node: task=%s", task_id)
     review = state.get("supervisor_review", {})
     final = review.get("feedback", "Rejected by supervisor")
 

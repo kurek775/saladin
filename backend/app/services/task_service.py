@@ -91,6 +91,7 @@ async def _run_task(task: TaskRecord, keys: RequestKeys | None = None) -> None:
     try:
         await _update_status(task, TaskStatus.RUNNING)
         await run_graph(task)
+        logger.info("Graph completed successfully for task %s", task.id)
     except Exception as e:
         logger.exception("Task %s failed: %s", task.id, e)
         await _update_status(task, TaskStatus.FAILED)
