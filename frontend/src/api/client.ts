@@ -52,3 +52,10 @@ export const createTask = (data: { description: string; assigned_agents?: string
 // Approval
 export const approveTask = (taskId: string, decision: { decision: string; feedback?: string }) =>
   request<Task>(`/tasks/${taskId}/approve`, { method: 'POST', body: JSON.stringify(decision) })
+
+// Scout / Self-Improve
+export const launchScout = (data: { num_tasks: number; max_depth: number; agent_id?: string }) =>
+  request<{ task_id: string; status: string; num_tasks: number; max_depth: number }>(
+    '/scout/launch',
+    { method: 'POST', body: JSON.stringify(data) }
+  )

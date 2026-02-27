@@ -34,6 +34,11 @@ class TaskDB(SQLModel, table=True):
     requires_human_approval: bool = False
     created_at: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
     updated_at: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
+    # Task lineage
+    parent_task_id: str = ""
+    depth: int = 0
+    child_task_ids: list = Field(default_factory=list, sa_column=Column(JSON))
+    spawned_by_agent: str = ""
 
 
 class WorkerOutputDB(SQLModel, table=True):

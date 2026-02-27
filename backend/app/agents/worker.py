@@ -6,6 +6,8 @@ from app.agents.llm_factory import create_llm
 from app.agents.prompts import WORKER_SYSTEM_PROMPT
 from app.agents.tools import search_memory, store_memory, summarize_text
 from app.agents.tools_code import read_file, write_file, list_files, search_code, run_command
+from app.agents.tools_tasks import create_task
+from app.agents.tools_improvements import append_improvement_note
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +36,7 @@ def create_worker_agent(
     tools = [
         search_memory, store_memory, summarize_text,
         read_file, write_file, list_files, search_code, run_command,
+        create_task, append_improvement_note,
     ]
 
     agent = create_react_agent(

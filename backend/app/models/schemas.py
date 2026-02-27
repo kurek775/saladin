@@ -37,6 +37,8 @@ class TaskCreate(BaseModel):
     description: str
     assigned_agents: list[str] = []  # Agent IDs; empty = use all workers
     requires_human_approval: bool = False
+    parent_task_id: str = ""
+    spawned_by_agent: str = ""
 
 
 class HumanDecision(BaseModel):
@@ -70,6 +72,10 @@ class TaskResponse(BaseModel):
     final_output: str
     created_at: str
     updated_at: str
+    parent_task_id: str = ""
+    depth: int = 0
+    child_task_ids: list[str] = []
+    spawned_by_agent: str = ""
 
 
 class TaskListResponse(BaseModel):
@@ -80,6 +86,10 @@ class TaskListResponse(BaseModel):
     current_revision: int
     created_at: str
     updated_at: str
+    parent_task_id: str = ""
+    depth: int = 0
+    child_task_ids: list[str] = []
+    spawned_by_agent: str = ""
 
 
 # --- WebSocket event ---

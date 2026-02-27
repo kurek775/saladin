@@ -75,3 +75,8 @@ class TaskRecord:
     requires_human_approval: bool = False
     created_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
     updated_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
+    # Task lineage for recursive self-improvement
+    parent_task_id: str = ""
+    depth: int = 0
+    child_task_ids: list[str] = field(default_factory=list)
+    spawned_by_agent: str = ""

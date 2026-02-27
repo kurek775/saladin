@@ -35,6 +35,10 @@ def _to_list_response(task) -> dict:
         "current_revision": task.current_revision,
         "created_at": task.created_at,
         "updated_at": task.updated_at,
+        "parent_task_id": task.parent_task_id,
+        "depth": task.depth,
+        "child_task_ids": task.child_task_ids,
+        "spawned_by_agent": task.spawned_by_agent,
     }
 
 
@@ -67,4 +71,8 @@ def _to_detail_response(task) -> dict:
         "final_output": task.final_output,
         "created_at": task.created_at,
         "updated_at": task.updated_at,
+        "parent_task_id": task.parent_task_id,
+        "depth": task.depth,
+        "child_task_ids": task.child_task_ids,
+        "spawned_by_agent": task.spawned_by_agent,
     }

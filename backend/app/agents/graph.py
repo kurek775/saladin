@@ -17,6 +17,7 @@ from app.core.event_bus import event_bus
 from app.services.agent_service import set_agent_status, get_agent
 from app.services.persistence import get_task, save_task
 from app.models.domain import AgentStatus
+from app.agents._tool_context import ToolContext, set_tool_context, reset_tool_context
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +91,7 @@ async def dispatch_workers(state: SaladinState) -> dict:
             return None
 
         await set_agent_status(agent_id, AgentStatus.BUSY)
+        token = set_tool_context(ToolContext(task_id=task_id, agent_id=agent_id))
 
         try:
             callback = TelemetryCallbackHandler(
@@ -151,6 +153,7 @@ async def dispatch_workers(state: SaladinState) -> dict:
                 output=f"Error: {e}",
             )
         finally:
+            reset_tool_context(token)
             await set_agent_status(agent_id, AgentStatus.IDLE)
 
     # Run workers concurrently

@@ -49,6 +49,10 @@ export interface Task {
   final_output: string
   created_at: string
   updated_at: string
+  parent_task_id: string
+  depth: number
+  child_task_ids: string[]
+  spawned_by_agent: string
 }
 
 export interface TaskSummary {
@@ -59,6 +63,10 @@ export interface TaskSummary {
   current_revision: number
   created_at: string
   updated_at: string
+  parent_task_id: string
+  depth: number
+  child_task_ids: string[]
+  spawned_by_agent: string
 }
 
 export interface LogEntry {

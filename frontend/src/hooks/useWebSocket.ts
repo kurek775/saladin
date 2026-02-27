@@ -94,13 +94,26 @@ function handleEvent(event: WSEvent): void {
       break
     }
     case 'task_update': {
-      const { task } = event.data
+      const d = event.data as Record<string, unknown>
+      const task = d.task as Record<string, unknown> | undefined
+      const action = d.action as string | undefined
       if (task && isString(task.id) && isTaskStatus(task.status)) {
-        updateTask(task.id, {
+        const updates: Record<string, unknown> = {
           status: task.status,
           ...(task.current_revision !== undefined && { current_revision: task.current_revision }),
           ...(task.final_output !== undefined && { final_output: task.final_output }),
-        })
+        }
+        // Handle child_created: update parent's child_task_ids
+        if (action === 'child_created' && Array.isArray(task.child_task_ids)) {
+          updates.child_task_ids = task.child_task_ids
+        }
+        // Carry lineage fields if present
+        if (task.parent_task_id !== undefined) updates.parent_task_id = task.parent_task_id
+        if (task.depth !== undefined) updates.depth = task.depth
+        if (task.child_task_ids !== undefined) updates.child_task_ids = task.child_task_ids
+        if (task.spawned_by_agent !== undefined) updates.spawned_by_agent = task.spawned_by_agent
+
+        updateTask(task.id as string, updates)
       }
       break
     }

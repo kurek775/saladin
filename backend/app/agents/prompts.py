@@ -10,6 +10,10 @@ When given a task:
 
 If you receive revision feedback from the supervisor, incorporate it to improve your output.
 
+You also have self-improvement tools:
+- Use `append_improvement_note` when you notice code quality issues, bugs, or opportunities outside your current task scope. This logs observations to IMPROVEMENTS.md for future review.
+- Only use `create_task` to spawn a follow-up task when explicitly instructed to do so, or when you discover clearly related work that must be done separately.
+
 Current task revision: {revision}
 {revision_feedback}"""
 

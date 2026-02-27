@@ -34,6 +34,12 @@ class Settings(BaseSettings):
     # Graph execution
     GRAPH_TIMEOUT_SECONDS: int = 600  # 10 minute global timeout per task
 
+    # Self-improvement safety limits
+    MAX_TASK_DEPTH: int = 3
+    MAX_CHILD_TASKS_PER_TASK: int = 5
+    MAX_TOTAL_AUTO_TASKS: int = 20
+    ALLOW_AUTO_TASK_CREATION: bool = True
+
     # Coding / sandbox
     SANDBOX_MODE: str = "local"  # "local" | "docker" — local runs commands directly on host
     WORKSPACE_DIR: str = "./workspace"

@@ -33,6 +33,8 @@ class TaskRepository(Protocol):
     def get(self, task_id: str) -> TaskRecord | None: ...
     def save(self, task: TaskRecord) -> None: ...
     def count(self) -> int: ...
+    def count_by_parent(self, parent_task_id: str) -> int: ...
+    def count_auto_created(self) -> int: ...
 
 
 # ── In-Memory Implementations ──
@@ -70,6 +72,12 @@ class InMemoryTaskRepo:
 
     def count(self) -> int:
         return len(store.tasks)
+
+    def count_by_parent(self, parent_task_id: str) -> int:
+        return sum(1 for t in store.tasks.values() if t.parent_task_id == parent_task_id)
+
+    def count_auto_created(self) -> int:
+        return sum(1 for t in store.tasks.values() if t.parent_task_id)
 
 
 # ── SQL Implementations ──
@@ -173,6 +181,10 @@ class SQLTaskRepo:
                 existing.requires_human_approval = getattr(task, 'requires_human_approval', False)
                 existing.created_at = task.created_at
                 existing.updated_at = task.updated_at
+                existing.parent_task_id = task.parent_task_id
+                existing.depth = task.depth
+                existing.child_task_ids = task.child_task_ids
+                existing.spawned_by_agent = task.spawned_by_agent
             else:
                 row = TaskDB(
                     id=task.id,
@@ -185,6 +197,10 @@ class SQLTaskRepo:
                     requires_human_approval=getattr(task, 'requires_human_approval', False),
                     created_at=task.created_at,
                     updated_at=task.updated_at,
+                    parent_task_id=task.parent_task_id,
+                    depth=task.depth,
+                    child_task_ids=task.child_task_ids,
+                    spawned_by_agent=task.spawned_by_agent,
                 )
                 session.add(row)
 
@@ -223,6 +239,22 @@ class SQLTaskRepo:
             from sqlmodel import func
             return session.exec(select(func.count()).select_from(TaskDB)).one()
 
+    def count_by_parent(self, parent_task_id: str) -> int:
+        from app.core.database import get_session
+        with get_session() as session:
+            from sqlmodel import func
+            return session.exec(
+                select(func.count()).select_from(TaskDB).where(TaskDB.parent_task_id == parent_task_id)
+            ).one()
+
+    def count_auto_created(self) -> int:
+        from app.core.database import get_session
+        with get_session() as session:
+            from sqlmodel import func
+            return session.exec(
+                select(func.count()).select_from(TaskDB).where(TaskDB.parent_task_id != "")
+            ).one()
+
     def _load_full(self, session, row: TaskDB) -> TaskRecord:
         wo_rows = session.exec(
             select(WorkerOutputDB).where(WorkerOutputDB.task_id == row.id)
@@ -260,6 +292,10 @@ class SQLTaskRepo:
             final_output=row.final_output,
             created_at=row.created_at,
             updated_at=row.updated_at,
+            parent_task_id=row.parent_task_id,
+            depth=row.depth,
+            child_task_ids=row.child_task_ids or [],
+            spawned_by_agent=row.spawned_by_agent,
         )
 
 

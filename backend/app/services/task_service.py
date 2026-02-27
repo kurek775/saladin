@@ -16,6 +16,10 @@ logger = logging.getLogger(__name__)
 _running_tasks: set[asyncio.Task] = set()
 
 
+class AutoTaskError(Exception):
+    """Raised when auto-task creation safety limits are hit."""
+
+
 def list_tasks(skip: int = 0, limit: int = 100) -> list[TaskRecord]:
     return get_task_repo().list(skip, limit)
 
@@ -24,7 +28,49 @@ def task_count() -> int:
     return get_task_repo().count()
 
 
+def _validate_lineage(data: TaskCreate) -> tuple[int, str]:
+    """Validate lineage constraints. Returns (depth, parent_task_id).
+
+    Raises AutoTaskError if any safety limit is exceeded.
+    """
+    from app.config import settings
+
+    if not data.parent_task_id:
+        return 0, ""
+
+    if not settings.ALLOW_AUTO_TASK_CREATION:
+        raise AutoTaskError("Automatic task creation is disabled (ALLOW_AUTO_TASK_CREATION=False)")
+
+    repo = get_task_repo()
+    parent = repo.get(data.parent_task_id)
+    if parent is None:
+        raise AutoTaskError(f"Parent task {data.parent_task_id} not found")
+
+    depth = parent.depth + 1
+    if depth > settings.MAX_TASK_DEPTH:
+        raise AutoTaskError(
+            f"Max task depth ({settings.MAX_TASK_DEPTH}) exceeded — depth would be {depth}"
+        )
+
+    sibling_count = repo.count_by_parent(data.parent_task_id)
+    if sibling_count >= settings.MAX_CHILD_TASKS_PER_TASK:
+        raise AutoTaskError(
+            f"Max children per task ({settings.MAX_CHILD_TASKS_PER_TASK}) reached for parent {data.parent_task_id}"
+        )
+
+    auto_total = repo.count_auto_created()
+    if auto_total >= settings.MAX_TOTAL_AUTO_TASKS:
+        raise AutoTaskError(
+            f"Max total auto-created tasks ({settings.MAX_TOTAL_AUTO_TASKS}) reached"
+        )
+
+    return depth, data.parent_task_id
+
+
 async def create_task(data: TaskCreate) -> TaskRecord:
+    # Validate lineage safety constraints
+    depth, parent_task_id = _validate_lineage(data)
+
     # Determine which agents to assign
     if data.assigned_agents:
         agent_ids = data.assigned_agents
@@ -34,12 +80,28 @@ async def create_task(data: TaskCreate) -> TaskRecord:
     task = TaskRecord(
         description=data.description,
         assigned_agents=agent_ids,
+        parent_task_id=parent_task_id,
+        depth=depth,
+        spawned_by_agent=data.spawned_by_agent,
     )
     # Carry over human approval flag if present
     if hasattr(data, 'requires_human_approval') and data.requires_human_approval:
         task.requires_human_approval = True
 
-    get_task_repo().save(task)
+    repo = get_task_repo()
+    repo.save(task)
+
+    # Append child ID to parent's child_task_ids
+    if parent_task_id:
+        parent = repo.get(parent_task_id)
+        if parent:
+            parent.child_task_ids.append(task.id)
+            parent.updated_at = datetime.now(UTC).isoformat()
+            repo.save(parent)
+            await event_bus.publish(WSEvent(
+                type="task_update",
+                data={"action": "child_created", "task": _task_summary(parent), "child_id": task.id},
+            ))
 
     await event_bus.publish(WSEvent(
         type="task_update",
@@ -125,4 +187,8 @@ def _task_summary(task: TaskRecord) -> dict:
         "current_revision": task.current_revision,
         "created_at": task.created_at,
         "updated_at": task.updated_at,
+        "parent_task_id": task.parent_task_id,
+        "depth": task.depth,
+        "child_task_ids": task.child_task_ids,
+        "spawned_by_agent": task.spawned_by_agent,
     }

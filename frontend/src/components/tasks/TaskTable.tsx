@@ -2,18 +2,29 @@ import { memo } from 'react'
 import { Link } from 'react-router-dom'
 import type { TaskSummary } from '../../api/types'
 import { StatusBadge } from '../common/StatusBadge'
-import { ExternalLink, Hash, Clock, FileText } from 'lucide-react'
+import { ExternalLink, Hash, Clock, FileText, GitBranch } from 'lucide-react'
 
 const TaskRow = memo(function TaskRow({ task }: { task: TaskSummary }) {
   return (
     <tr className="border-b transition-colors hover:bg-muted/30 group">
       <td className="py-4 px-4 max-w-md">
-        <div className="flex flex-col gap-0.5">
-          <span className="font-medium text-foreground group-hover:text-primary transition-colors truncate">
+        <div className="flex flex-col gap-0.5" style={task.depth > 0 ? { paddingLeft: `${task.depth * 16}px` } : undefined}>
+          <span className="font-medium text-foreground group-hover:text-primary transition-colors truncate flex items-center gap-1.5">
+            {task.depth > 0 && <GitBranch className="size-3 text-muted-foreground/50 shrink-0" />}
             {task.description}
+            {task.depth > 0 && (
+              <span className="shrink-0 text-[9px] font-bold uppercase tracking-wider bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+                auto
+              </span>
+            )}
           </span>
           <span className="text-xs text-muted-foreground font-mono flex items-center gap-1 uppercase tracking-tight">
             <Hash className="size-2.5" /> {task.id.slice(0, 8)}
+            {task.child_task_ids && task.child_task_ids.length > 0 && (
+              <span className="ml-1 text-muted-foreground/60">
+                ({task.child_task_ids.length} children)
+              </span>
+            )}
           </span>
         </div>
       </td>

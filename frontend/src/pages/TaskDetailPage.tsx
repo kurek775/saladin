@@ -7,7 +7,7 @@ import { TaskTimeline } from '../components/tasks/TaskTimeline'
 import { LiveLogPanel } from '../components/logs/LiveLogPanel'
 import { LoadingSpinner } from '../components/common/LoadingSpinner'
 import { HumanApprovalPanel } from '../components/tasks/HumanApprovalPanel'
-import { ArrowLeft, ClipboardList, CheckCircle, FileText, Activity, Clock, Hash, History, Zap, DollarSign } from 'lucide-react'
+import { ArrowLeft, ClipboardList, CheckCircle, FileText, Activity, Clock, Hash, History, Zap, DollarSign, GitBranch, Bot } from 'lucide-react'
 
 export function TaskDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -114,6 +114,59 @@ export function TaskDetailPage() {
 
         {/* Sidebar */}
         <div className="lg:col-span-1 space-y-6">
+          {/* Task Lineage */}
+          {(task.parent_task_id || (task.child_task_ids && task.child_task_ids.length > 0)) && (
+            <section className="bg-card border rounded-xl p-5 space-y-3">
+              <div className="flex items-center gap-2">
+                <GitBranch className="size-4 text-primary" />
+                <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Lineage</h3>
+                {task.depth > 0 && (
+                  <span className="text-[10px] font-bold bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+                    DEPTH {task.depth}
+                  </span>
+                )}
+              </div>
+
+              {task.parent_task_id && (
+                <div className="space-y-1">
+                  <p className="text-[10px] text-muted-foreground uppercase font-semibold">Parent Task</p>
+                  <Link
+                    to={`/tasks/${task.parent_task_id}`}
+                    className="text-xs font-mono text-primary hover:underline block truncate"
+                  >
+                    {task.parent_task_id}
+                  </Link>
+                </div>
+              )}
+
+              {task.spawned_by_agent && (
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Bot className="size-3" />
+                  <span>Spawned by agent <span className="font-mono">{task.spawned_by_agent.slice(0, 8)}</span></span>
+                </div>
+              )}
+
+              {task.child_task_ids && task.child_task_ids.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="text-[10px] text-muted-foreground uppercase font-semibold">
+                    Child Tasks ({task.child_task_ids.length})
+                  </p>
+                  <div className="space-y-1 max-h-40 overflow-auto custom-scrollbar">
+                    {task.child_task_ids.map((childId) => (
+                      <Link
+                        key={childId}
+                        to={`/tasks/${childId}`}
+                        className="text-xs font-mono text-primary hover:underline block truncate"
+                      >
+                        {childId}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
+
           {/* Token Telemetry */}
           {telemetry && telemetry.total_tokens > 0 && (
             <section className="bg-card border rounded-xl p-5 space-y-3">

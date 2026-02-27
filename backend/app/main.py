@@ -10,7 +10,7 @@ from app.core.event_bus import event_bus
 from app.core.ws_manager import ws_manager
 from app.core.log_filter import KeyScrubFilter
 from app.middleware.byok import BYOKMiddleware
-from app.api.routes import health, agents, tasks, settings as settings_routes, approval
+from app.api.routes import health, agents, tasks, settings as settings_routes, approval, scout
 from app.api import websocket
 
 logging.basicConfig(level=logging.INFO)
@@ -78,4 +78,5 @@ app.include_router(agents.router)
 app.include_router(tasks.router)
 app.include_router(settings_routes.router)
 app.include_router(approval.router)
+app.include_router(scout.router)
 app.include_router(websocket.router)
