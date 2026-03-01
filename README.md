@@ -5,8 +5,10 @@ Saladin is an advanced AI agent orchestration platform designed to empower devel
 ## 🚀 Features & Highlights
 
 *   **Multi-Agent Workflows**: Orchestrate sophisticated AI agent interactions and task execution.
-*   **BYOK Multi-Provider LLM**: Bring your own API keys for various LLM providers (OpenAI, Anthropic, Google) for flexible model usage.
+*   **Recursive Self-Improvement**: One-click "Self-Improve" launches a scout that analyzes the codebase, creates improvement tasks, and each task can auto-spawn follow-ups up to a configurable depth — a fully autonomous improvement flywheel.
+*   **BYOK Multi-Provider LLM**: Bring your own API keys for various LLM providers (OpenAI, Anthropic, Google, Ollama) for flexible model usage.
 *   **Human-in-the-Loop Approval**: Integrate human oversight and approval steps into agent workflows.
+*   **Task Lineage & Safety Limits**: Auto-created tasks track parent/child relationships with configurable depth limits, per-task child caps, and a global kill switch.
 *   **Docker Sandbox & Local Execution**: Securely execute agent code in isolated Docker containers or directly on the host for development.
 *   **Real-time WebSocket Communication**: Interact with agents and receive live updates through a responsive WebSocket interface.
 *   **Comprehensive Telemetry**: Gain insights into agent behavior and system performance with detailed logging and metrics.
@@ -111,3 +113,31 @@ These variables can be set in `backend/.env` or as environment variables in your
 *   `WORKSPACE_DIR`: Directory where agent workspaces are stored (e.g., `./workspace`).
 *   `SANDBOX_IMAGE`: Docker image to use for the sandbox (e.g., `python:3.13-slim`).
 *   `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`: PostgreSQL credentials (used with Docker Compose).
+
+### Self-Improvement Settings
+
+*   `MAX_TASK_DEPTH`: Maximum depth for auto-spawned task trees (default: `3`).
+*   `MAX_CHILD_TASKS_PER_TASK`: Max children any single task can spawn (default: `5`).
+*   `MAX_TOTAL_AUTO_TASKS`: Global cap on total auto-created tasks (default: `20`).
+*   `ALLOW_AUTO_TASK_CREATION`: Kill switch to disable auto-task creation entirely (default: `true`).
+
+## 🧠 Self-Improvement Loop
+
+Saladin agents can analyze and improve their own codebase. Click **Self-Improve** in the sidebar to configure and launch:
+
+```
+User clicks "Self-Improve" → configures (tasks: 5, depth: 2) → hits Launch
+  └─ Scout task analyzes codebase, creates 5 improvement tasks
+       ├─ Task 1 does work, notices more issues → spawns 2 follow-ups
+       │   ├─ Task 1.1 does work (depth 2, can't spawn more)
+       │   └─ Task 1.2 does work (depth 2, can't spawn more)
+       ├─ Task 2 does work → spawns 1 follow-up
+       │   └─ Task 2.1 does work (depth 2, stops)
+       └─ Tasks 3-5 do work, log observations to IMPROVEMENTS.md
+```
+
+**Agent tools:**
+- `create_task` — spawn follow-up tasks (respects depth/count limits)
+- `append_improvement_note` — log observations to `IMPROVEMENTS.md` for future reference
+
+**Safety:** All auto-spawning is bounded by depth limits, per-task child caps, a global task ceiling, and a kill switch (`ALLOW_AUTO_TASK_CREATION=false`).

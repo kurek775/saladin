@@ -29,6 +29,7 @@ export function useWebSocket(): void {
       ws.onopen = () => {
         reconnectAttempts = 0
         useStore.getState().setWsConnected(true)
+        useStore.getState().setWsError(null) // Clear any previous errors on successful connection
       }
 
       ws.onmessage = (e: MessageEvent) => {
@@ -54,7 +55,18 @@ export function useWebSocket(): void {
         }
       }
 
-      ws.onerror = () => {}
+      ws.onerror = (event) => {
+        console.error('WebSocket error:', event)
+        const errorMessage = 'WebSocket connection error. Please check your network and refresh the page.'
+        useStore.getState().setWsError(errorMessage)
+        useStore.getState().addLog({
+          id: `${Date.now()}-${++idCounter}`,
+          task_id: 'system',
+          level: 'error',
+          message: errorMessage,
+          timestamp: new Date().toISOString(),
+        })
+      }
     }
 
     connect()

@@ -41,7 +41,9 @@ class Settings(BaseSettings):
     ALLOW_AUTO_TASK_CREATION: bool = True
 
     # Coding / sandbox
-    SANDBOX_MODE: str = "local"  # "local" | "docker" — local runs commands directly on host
+    # SANDBOX_MODE: "local" runs commands directly on host,
+    # "docker" runs commands in a Docker container
+    SANDBOX_MODE: str = "local"
     WORKSPACE_DIR: str = "./workspace"
     SANDBOX_IMAGE: str = "python:3.13-slim"
     SANDBOX_TIMEOUT: int = 30
@@ -69,6 +71,9 @@ class Settings(BaseSettings):
         "create_task",
         "append_improvement_note",
     ]
+
+    # Retryable exceptions for backend utilities
+    GLOBAL_RETRYABLE_EXCEPTIONS: list[str] = []
 
     model_config = {"env_file": ".env", "extra": "ignore"}
 

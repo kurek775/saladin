@@ -6,8 +6,9 @@ import { createThemeSlice, type ThemeSlice } from './themeSlice'
 import { createDashboardSlice, type DashboardSlice } from './dashboardSlice'
 import { createSettingsSlice, type SettingsSlice } from './settingsSlice'
 import { createTelemetrySlice, type TelemetrySlice } from './telemetrySlice'
+import { createWebSocketSlice, type WebSocketSlice } from './webSocketSlice'
 
-export type AppStore = AgentSlice & TaskSlice & LogSlice & ThemeSlice & DashboardSlice & SettingsSlice & TelemetrySlice
+export type AppStore = AgentSlice & TaskSlice & LogSlice & ThemeSlice & DashboardSlice & SettingsSlice & TelemetrySlice & WebSocketSlice
 
 export const useStore = create<AppStore>()((...a) => ({
   ...createAgentSlice(...a),
@@ -17,4 +18,5 @@ export const useStore = create<AppStore>()((...a) => ({
   ...createDashboardSlice(...a),
   ...createSettingsSlice(...a),
   ...createTelemetrySlice(...a),
+  ...createWebSocketSlice(...a),
 }))
